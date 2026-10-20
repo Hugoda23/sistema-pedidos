@@ -9,15 +9,13 @@ import { EstadoItem } from '../components/EstadoBadge'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
-import { DocumentTextIcon, LockClosedIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, ListBulletIcon, LockClosedIcon, Squares2X2Icon } from '@heroicons/react/24/outline'
 import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 
 const PESTANAS = [
   ['por_atender', 'Por atender'],
   ['revisar', 'Revisar ingreso'],
   ['no_disponible', 'No disponibles'],
-  ['enviado', 'Enviados'],
-  ['descontinuado', 'Descontinuados'],
   ['todos', 'Todos'],
 ]
 
@@ -139,7 +137,7 @@ export default function Proveedor() {
             <div className="text-blue-800">Desde {fechaHora(abierto.abierto_en)} · {abierto.lineas} línea(s) · {abierto.unidades} unidad(es) · {abierto.por_atender} por atender</div>
           </div>
           <div className="flex gap-2">
-            <Boton variante="secundario" onClick={() => { setFiltros({ ...filtros, lote_id: String(abierto.id), estado: 'todos' }); setVista('consolidado') }}>Ver consolidado</Boton>
+            <Boton variante="secundario" onClick={() => { setFiltros({ ...filtros, lote_id: String(abierto.id), estado: 'todos' }); setVista('consolidado') }}>Total por código</Boton>
             {puede('proveedor.cerrar_lote') && abierto.lineas > 0 && <Boton icono={LockClosedIcon} onClick={cerrarLote}>Cerrar pedido #{abierto.numero}</Boton>}
           </div>
         </div>
@@ -158,7 +156,7 @@ export default function Proveedor() {
         ))}
       </div>
 
-      <div className="mb-3 grid gap-2 sm:grid-cols-4">
+      <div className="mb-3 grid gap-2 sm:grid-cols-3">
         <Input className="sm:col-span-2" placeholder="Buscar código o descripción" value={filtros.q} onChange={set('q')} />
         <div className="flex gap-2">
           <Select value={filtros.lote_id} onChange={set('lote_id')}>
@@ -172,10 +170,23 @@ export default function Proveedor() {
               onClick={() => setReporte({ id: filtros.lote_id, numero: lotes.find((l) => String(l.id) === String(filtros.lote_id))?.numero })}>Reporte</Boton>
           )}
         </div>
-        <Select value={vista} onChange={(e) => setVista(e.target.value)}>
-          <option value="detalle">Ver por línea</option>
-          <option value="consolidado">Ver sumado por código</option>
-        </Select>
+      </div>
+
+      {/* Dos formas de ver la misma lista. */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-lg border bg-white p-0.5" role="group" aria-label="Forma de ver">
+          {[['detalle', 'Detalle por pedido', <ListBulletIcon key="i" className="h-4 w-4" />], ['consolidado', 'Total por código', <Squares2X2Icon key="i" className="h-4 w-4" />]].map(([k, t, icono]) => (
+            <button key={k} onClick={() => setVista(k)} aria-pressed={vista === k}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${vista === k ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+              {icono}{t}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-slate-500">
+          {vista === 'detalle'
+            ? 'Una fila por cada repuesto que pidió cada vendedor para su cliente. Aquí se marca enviado, no disponible o descontinuado.'
+            : 'Junta las filas del mismo código y suma las unidades: lo que hay que despachar en total. Aquí no se marcan estados.'}
+        </p>
       </div>
 
       <Alerta tipo={aviso.tipo}>{aviso.texto}</Alerta>
