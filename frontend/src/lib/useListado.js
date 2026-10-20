@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
+
+// La misma lista vacía siempre: si fuera `[]` nuevo en cada render, los efectos
+// que dependen de `filas` se dispararían sin fin mientras carga.
+const SIN_FILAS = []
 
 /** Carga un listado paginado y lo recarga cuando cambian los filtros. */
 export function useListado(ruta, filtros) {
@@ -26,5 +30,7 @@ export function useListado(ruta, filtros) {
     return () => clearTimeout(t)
   }, [recargar])
 
-  return { filas: datos?.data ?? [], pagina: datos, cargando, error, setPage, recargar }
+  const filas = useMemo(() => datos?.data ?? SIN_FILAS, [datos])
+
+  return { filas, pagina: datos, cargando, error, setPage, recargar }
 }

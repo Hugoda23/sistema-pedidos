@@ -9,7 +9,8 @@ import { EstadoItem } from '../components/EstadoBadge'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
-import { LockClosedIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, LockClosedIcon } from '@heroicons/react/24/outline'
+import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 
 const PESTANAS = [
   ['por_atender', 'Por atender'],
@@ -34,6 +35,7 @@ export default function Proveedor() {
   const [dialogo, setDialogo] = useState(null) // { estado, ids }
   const [aviso, setAviso] = useState({ tipo: 'ok', texto: '' })
   const [whatsapp, setWhatsapp] = useState(null) // { enviados, sin_telefono, vinculado }
+  const [reporte, setReporte] = useState(null) // { id, numero } del pedido a mostrar en PDF
 
   const cargarLotes = useCallback(() => api('/proveedor/lotes').then(setLotes).catch(() => {}), [])
   useEffect(() => { cargarLotes() }, [cargarLotes])
@@ -57,6 +59,7 @@ export default function Proveedor() {
       setAviso({ tipo: 'ok', texto: `Pedido #${r.numero} cerrado.` })
       setWhatsapp(r.whatsapp)
       refrescar()
+      setReporte({ id: r.id, numero: r.numero }) // muestra el PDF del pedido recién cerrado
     } catch (e) {
       setAviso({ tipo: 'error', texto: e.message })
     }
@@ -157,12 +160,18 @@ export default function Proveedor() {
 
       <div className="mb-3 grid gap-2 sm:grid-cols-4">
         <Input className="sm:col-span-2" placeholder="Buscar código o descripción" value={filtros.q} onChange={set('q')} />
-        <Select value={filtros.lote_id} onChange={set('lote_id')}>
-          <option value="">Todos los pedidos</option>
-          {lotes.map((l) => (
-            <option key={l.id} value={l.id}>#{l.numero} · {l.estado === 'abierto' ? 'abierto' : `cerrado ${fecha(l.cerrado_en)}`} · {l.lineas} líneas</option>
-          ))}
-        </Select>
+        <div className="flex gap-2">
+          <Select value={filtros.lote_id} onChange={set('lote_id')}>
+            <option value="">Todos los pedidos</option>
+            {lotes.map((l) => (
+              <option key={l.id} value={l.id}>#{l.numero} · {l.estado === 'abierto' ? 'abierto' : `cerrado ${fecha(l.cerrado_en)}`} · {l.lineas} líneas</option>
+            ))}
+          </Select>
+          {filtros.lote_id && (
+            <Boton variante="secundario" icono={DocumentTextIcon} title="Reporte del pedido en PDF"
+              onClick={() => setReporte({ id: filtros.lote_id, numero: lotes.find((l) => String(l.id) === String(filtros.lote_id))?.numero })}>Reporte</Boton>
+          )}
+        </div>
         <Select value={vista} onChange={(e) => setVista(e.target.value)}>
           <option value="detalle">Ver por línea</option>
           <option value="consolidado">Ver sumado por código</option>
@@ -190,6 +199,10 @@ export default function Proveedor() {
         <DataTable columnas={columnasConsolidado} datos={consolidado} vacio="No hay repuestos en esta vista." />
       )}
 
+      {reporte && (
+        <VistaPreviaDocumento titulo={`Reporte · Pedido de clientes #${reporte.numero}`} ruta={`/proveedor/lotes/${reporte.id}/reporte`}
+          nombrePdf={`pedido-${reporte.numero}.pdf`} onCerrar={() => setReporte(null)} />
+      )}
       {dialogo && <DialogoEstado dialogo={dialogo} onCerrar={() => setDialogo(null)} onEnviar={cambiar} />}
     </div>
   )

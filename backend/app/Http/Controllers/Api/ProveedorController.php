@@ -97,6 +97,28 @@ class ProveedorController extends Controller
         ]));
     }
 
+    /**
+     * Reporte de un pedido de clientes para el proveedor: sumado por código, detalle y movimientos.
+     * Igual que su tabla, sin nombres de clientes ni precios. HTML para la vista previa, o PDF.
+     */
+    public function reporte(Request $request, Lote $lote)
+    {
+        abort_unless($lote->tipo === Lote::CLIENTES, 404);
+
+        $items = $lote->items()->with(['pedido:id,numero,vendedor_id', 'pedido.vendedor:id,name', 'historial.user:id,name'])
+            ->orderBy('codigo')->orderBy('id')->get();
+        $movimientos = $items->flatMap(fn (PedidoItem $i) => $i->historial->map(fn ($h) => ['item' => $i, 'h' => $h]))
+            ->sortBy(fn ($m) => [$m['h']->created_at->timestamp, $m['h']->id])->values();
+        $vista = view('reportes.pedido-clientes', ['lote' => $lote->load('cerradoPor'), 'items' => $items, 'movimientos' => $movimientos]);
+
+        if ($request->query('formato') === 'pdf') {
+            return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($vista->render())->setPaper('letter')
+                ->download("pedido-{$lote->numero}.pdf");
+        }
+
+        return response($vista->render())->header('Content-Type', 'text/html; charset=utf-8');
+    }
+
     /** El proveedor cierra el pedido de clientes (el de inventario se cierra aparte). */
     public function cerrarLote(Request $request, Avisos $avisos): JsonResponse
     {

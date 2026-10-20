@@ -160,4 +160,28 @@ class ProveedorTest extends TestCase
         $this->actingAs($this->proveedor)->getJson('/api/proveedor/items')->assertJsonCount(1, 'data');
         $this->getJson('/api/proveedor/items?estado=todos')->assertJsonCount(1, 'data');
     }
+
+    public function test_reporte_del_pedido_cerrado_sin_clientes_ni_precios(): void
+    {
+        $this->pedir([['codigo' => 'lod-1', 'descripcion' => 'Lodera', 'cantidad' => 3, 'precio' => 140]]);
+        $this->actingAs($this->proveedor)->postJson('/api/proveedor/items/estado', ['ids' => $this->ids(1), 'estado' => 'enviado'])->assertOk();
+        $lote = $this->postJson('/api/proveedor/lotes/cerrar')->assertOk()->json();
+
+        $html = $this->get("/api/proveedor/lotes/{$lote['id']}/reporte")->assertOk()->getContent();
+        foreach (['Pedido de clientes', "#{$lote['numero']}", 'Sumado por código', 'LOD-1', 'Ana', $this->pedido['numero'], 'Enviado', 'Movimientos'] as $t) {
+            $this->assertStringContainsString($t, $html, "Falta «{$t}»");
+        }
+        $this->assertMatchesRegularExpression('/LOD-1<\/td><td>Lodera<\/td><td class="der"><b>5<\/b>/', $html); // 2 + 3
+        $this->assertStringNotContainsString('Cliente Secreto', $html);
+        $this->assertStringNotContainsString('150.00', $html);
+        $this->assertStringNotContainsString('Q ', $html);
+
+        $pdf = $this->get("/api/proveedor/lotes/{$lote['id']}/reporte?formato=pdf")->assertOk();
+        $this->assertStringStartsWith('%PDF', $pdf->getContent());
+
+        // El vendedor no lo ve, y un lote de inventario no sale por aquí.
+        $this->actingAs($this->vendedor)->get("/api/proveedor/lotes/{$lote['id']}/reporte")->assertForbidden();
+        $inv = \App\Models\Lote::actual('inventario');
+        $this->actingAs($this->proveedor)->get("/api/proveedor/lotes/{$inv->id}/reporte")->assertNotFound();
+    }
 }

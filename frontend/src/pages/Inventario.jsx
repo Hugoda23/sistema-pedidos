@@ -94,6 +94,7 @@ export default function Inventario() {
       setWhatsapp(r.whatsapp)
       recargar()
       cargarPedidos()
+      setReporte({ id: r.id, numero: r.numero }) // muestra el PDF del pedido recién cerrado
     } catch (e) {
       setAviso({ tipo: 'error', texto: e.message })
     }
