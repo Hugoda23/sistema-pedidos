@@ -9,7 +9,7 @@ import { EstadoItem } from '../components/EstadoBadge'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
-import { DocumentTextIcon, ListBulletIcon, Squares2X2Icon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon } from '@heroicons/react/24/outline'
 import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 
 const PESTANAS = [
@@ -25,9 +25,7 @@ export default function Proveedor() {
   const [params] = useSearchParams()
   const [filtros, setFiltros] = useState({ estado: params.get('estado') ?? 'por_atender', q: '', lote_id: '', por_pagina: 50 })
   useEffect(() => { if (params.get('estado')) setFiltros((f) => ({ ...f, estado: params.get('estado') })) }, [params])
-  const [vista, setVista] = useState('detalle')
   const { filas, pagina, cargando, error, setPage, recargar } = useListado('/proveedor/items', filtros)
-  const [consolidado, setConsolidado] = useState([])
   const [lotes, setLotes] = useState([])
   const [marcados, setMarcados] = useState(new Set())
   const [dialogo, setDialogo] = useState(null) // { estado, ids }
@@ -38,11 +36,6 @@ export default function Proveedor() {
   const cargarLotes = useCallback(() => api('/proveedor/lotes').then(setLotes).catch(() => {}), [])
   useEffect(() => { cargarLotes() }, [cargarLotes])
   useEffect(() => setMarcados(new Set()), [filas])
-  useEffect(() => {
-    if (vista !== 'consolidado') return
-    const { estado, q, lote_id } = filtros
-    api('/proveedor/consolidado', { params: { estado, q, lote_id } }).then(setConsolidado).catch(() => {})
-  }, [vista, filtros])
 
   const set = (k) => (e) => setFiltros({ ...filtros, [k]: e.target.value })
 
@@ -102,12 +95,6 @@ export default function Proveedor() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [actualiza, marcados, todos, filas])
 
-  const columnasConsolidado = useMemo(() => [
-    { header: 'Código', accessorKey: 'codigo', cell: (c) => <span className="font-mono font-medium">{c.getValue()}</span> },
-    { header: 'Descripción', accessorKey: 'descripcion' },
-    { header: 'Total unidades', accessorKey: 'cantidad', cell: (c) => <span className="font-semibold">{c.getValue()}</span> },
-    { header: 'Líneas', accessorKey: 'lineas' },
-  ], [])
 
   return (
     <div>
@@ -143,43 +130,21 @@ export default function Proveedor() {
         </div>
       </div>
 
-      {/* Dos formas de ver la misma lista. */}
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded-lg border bg-white p-0.5" role="group" aria-label="Forma de ver">
-          {[['detalle', 'Detalle por pedido', <ListBulletIcon key="i" className="h-4 w-4" />], ['consolidado', 'Total por código', <Squares2X2Icon key="i" className="h-4 w-4" />]].map(([k, t, icono]) => (
-            <button key={k} onClick={() => setVista(k)} aria-pressed={vista === k}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${vista === k ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
-              {icono}{t}
-            </button>
-          ))}
-        </div>
-        <p className="text-sm text-slate-500">
-          {vista === 'detalle'
-            ? 'Una fila por cada repuesto que pidió cada vendedor para su cliente. Aquí se marca enviado, no disponible o descontinuado.'
-            : 'Junta las filas del mismo código y suma las unidades: lo que hay que despachar en total. Aquí no se marcan estados.'}
-        </p>
-      </div>
 
       <Alerta tipo={aviso.tipo}>{aviso.texto}</Alerta>
       <Alerta>{error}</Alerta>
       {whatsapp && <ResultadoWhatsapp r={whatsapp} onCerrar={() => setWhatsapp(null)} />}
 
-      {vista === 'detalle' ? (
-        <>
-          {actualiza && marcados.size > 0 && (
-            <div className="sticky top-0 z-10 mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-slate-800 p-2 text-sm text-white">
-              <span className="px-2">{marcados.size} seleccionada(s)</span>
-              <Boton onClick={() => cambiar('enviado', [...marcados])}>Marcar enviado</Boton>
-              <Boton variante="secundario" onClick={() => setDialogo({ estado: 'no_disponible', ids: [...marcados] })}>No disponible…</Boton>
-              <Boton variante="peligro" onClick={() => setDialogo({ estado: 'descontinuado', ids: [...marcados] })}>Descontinuado…</Boton>
-            </div>
-          )}
-          <DataTable columnas={columnas} datos={filas} pagina={pagina} onPagina={setPage} cargando={cargando}
-            vacio="No hay repuestos en esta vista." claseFila={(f) => (f.revisar_ingreso ? 'bg-red-50' : '')} />
-        </>
-      ) : (
-        <DataTable columnas={columnasConsolidado} datos={consolidado} vacio="No hay repuestos en esta vista." />
+      {actualiza && marcados.size > 0 && (
+        <div className="sticky top-0 z-10 mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-slate-800 p-2 text-sm text-white">
+          <span className="px-2">{marcados.size} seleccionada(s)</span>
+          <Boton onClick={() => cambiar('enviado', [...marcados])}>Marcar enviado</Boton>
+          <Boton variante="secundario" onClick={() => setDialogo({ estado: 'no_disponible', ids: [...marcados] })}>No disponible…</Boton>
+          <Boton variante="peligro" onClick={() => setDialogo({ estado: 'descontinuado', ids: [...marcados] })}>Descontinuado…</Boton>
+        </div>
       )}
+      <DataTable columnas={columnas} datos={filas} pagina={pagina} onPagina={setPage} cargando={cargando}
+        vacio="No hay repuestos en esta vista." claseFila={(f) => (f.revisar_ingreso ? 'bg-red-50' : '')} />
 
       {reporte && (
         <VistaPreviaDocumento titulo={`Reporte · Pedido de clientes #${reporte.numero}`} ruta={`/proveedor/lotes/${reporte.id}/reporte`}
