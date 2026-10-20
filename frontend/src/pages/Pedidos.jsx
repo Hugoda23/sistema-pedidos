@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { ESTADO_PEDIDO } from '../lib/estados'
@@ -14,7 +14,8 @@ export default function Pedidos() {
   const { puede } = useAuth()
   const navegar = useNavigate()
   const verTodos = puede('pedidos.ver_todos')
-  const [filtros, setFiltros] = useState({ q: '', estado: '', vendedor_id: '', desde: '', hasta: '', con_saldo: '' })
+  const [params] = useSearchParams()
+  const [filtros, setFiltros] = useState({ q: '', estado: params.get('estado') ?? '', vendedor_id: '', desde: '', hasta: '', con_saldo: '' })
   const { filas, pagina, cargando, error, setPage } = useListado('/pedidos', filtros)
   const [errorExcel, setErrorExcel] = useState('')
   const [vendedores, setVendedores] = useState([])

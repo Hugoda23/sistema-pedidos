@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import Campanita from './Campanita'
 
@@ -41,7 +41,10 @@ export default function Layout() {
           <button className="rounded p-1 md:hidden" onClick={() => setAbierto(true)} aria-label="Menú">☰</button>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <Campanita />
-            <span className="hidden text-slate-600 sm:inline">{user.name} · <span className="text-slate-400">{user.roles.join(', ')}</span></span>
+            <Link to="/perfil" className="text-slate-600 hover:text-blue-600" title="Mi perfil">
+              <span className="hidden sm:inline">{user.name} · <span className="text-slate-400">{user.roles.join(', ')}</span></span>
+              <span className="sm:hidden">Perfil</span>
+            </Link>
             <button onClick={logout} className="rounded-lg border px-3 py-1 hover:bg-slate-50">Salir</button>
           </div>
         </header>

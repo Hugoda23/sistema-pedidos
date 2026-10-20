@@ -33,13 +33,48 @@ class DemoSeeder extends Seeder
             ]],
         ];
 
+        $ejemplos[] = [$v1, ['Jorge Castillo', '42221111', 'Suzuki GN125 2019'], 150, [
+            ['FIL-GN125', 'Filtro de aire GN125', 1, 75],
+            ['ESP-UNI', 'Espejo retrovisor universal', 2, 45],
+        ]];
+        $ejemplos[] = [$v1, ['Ana Ruiz', '43334444', 'Bajaj Pulsar 200 2021'], 320, [
+            ['KIT-ARR-200', 'Kit de arrastre Pulsar 200', 1, 320],
+        ]];
+        $ejemplos[] = [$v2, ['Pedro Gómez', '45556666', 'Italika FT150 2018'], 0, [
+            ['CDI-FT150', 'CDI Italika FT150', 1, 210],
+        ]];
+
+        $creados = [];
         foreach ($ejemplos as [$vendedor, [$nombre, $tel, $moto], $anticipo, $items]) {
             $cliente = Cliente::firstOrCreate(['nombre' => $nombre], ['telefono' => $tel, 'moto' => $moto, 'creado_por' => $vendedor->id]);
-            $pedidos->crear([
+            $creados[] = $pedidos->crear([
                 'cliente_id' => $cliente->id,
                 'anticipo' => $anticipo,
                 'items' => array_map(fn ($i) => ['codigo' => $i[0], 'descripcion' => $i[1], 'cantidad' => $i[2], 'precio' => $i[3]], $items),
             ], $vendedor);
         }
+
+        // Estados variados para ver el panel: el proveedor cerró el primer pedido y fue respondiendo.
+        $prov = User::where('email', 'proveedor@pedidos.test')->first();
+        \App\Models\Lote::where('estado', 'abierto')->update(['estado' => 'cerrado', 'cerrado_por' => $prov->id, 'cerrado_en' => now()]);
+        $item = fn ($p, $i) => $p->items()->orderBy('id')->get()[$i];
+        $E = \App\Enums\EstadoItem::class;
+
+        [$mario, $lucia, $jorge, $ana] = $creados;
+        $item($mario, 0)->cambiarEstado($E::Enviado, $prov);
+        $item($mario, 1)->cambiarEstado($E::NoDisponible, $prov, 'Viene de fábrica', today()->toDateString());
+        $item($lucia, 1)->cambiarEstado($E::NoDisponible, $prov, 'Próximo contenedor', today()->addDays(6)->toDateString());
+        $item($lucia, 0)->cambiarEstado($E::Enviado, $prov);
+        foreach ([0, 1] as $i) {
+            $item($jorge, $i)->cambiarEstado($E::Enviado, $prov);
+            $item($jorge, $i)->cambiarEstado($E::Recibido, $v1);
+        }
+        $item($ana, 0)->cambiarEstado($E::Enviado, $prov);
+        $item($ana, 0)->cambiarEstado($E::Recibido, $v1);
+        $item($ana, 0)->cambiarEstado($E::Entregado, $v1);
+        foreach ($creados as $p) {
+            $p->recalcular();
+        }
+        // El de Pedro (último) queda pendiente en el pedido abierto nuevo.
     }
 }

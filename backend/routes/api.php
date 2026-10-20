@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\NotificacionController;
+use App\Http\Controllers\Api\PanelController;
 use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\ProveedorController;
@@ -15,6 +16,8 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10
 Route::middleware(['auth:sanctum', 'activo'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::put('/perfil', [AuthController::class, 'actualizarPerfil']);
+    Route::get('/panel', PanelController::class);
 
     Route::get('/notificaciones', [NotificacionController::class, 'index']);
     Route::post('/notificaciones/leer', [NotificacionController::class, 'leer']);

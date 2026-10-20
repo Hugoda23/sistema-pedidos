@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
   const puede = useCallback((permiso) => !!user?.permisos.includes(permiso), [user])
 
   return (
-    <AuthContext.Provider value={{ user, cargando, login, logout, puede }}>
+    <AuthContext.Provider value={{ user, cargando, login, logout, puede, actualizarUsuario: setUser }}>
       {children}
     </AuthContext.Provider>
   )

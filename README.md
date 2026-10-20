@@ -12,7 +12,7 @@ docker compose exec app php artisan migrate --seed
 - Postgres: localhost:5445 (pedidos / secret)
 
 Usuarios de prueba (contraseña `password`): `admin@pedidos.test`, `vendedor@pedidos.test`, `proveedor@pedidos.test`.
-Pedidos de ejemplo: `docker compose exec app php artisan db:seed --class=DemoSeeder` (agrega `vendedor2@pedidos.test`).
+Pedidos de ejemplo: `docker compose exec app php artisan db:seed --class=DemoSeeder` (agrega `vendedor2@pedidos.test`, teléfonos y pedidos en distintos estados).
 
 Pruebas (usan la base `pedidos_testing`, no tocan la de desarrollo):
 

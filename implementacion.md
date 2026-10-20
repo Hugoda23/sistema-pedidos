@@ -28,4 +28,5 @@
 5. [x] Tabla del proveedor (sin cliente ni precio) + estados + cierre de lote.
 6. [x] Fecha aprox. de ingreso → tarea diaria (08:00) + campanita + botones de WhatsApp (wa.me).
 7. [x] Exportar a Excel (pedidos + líneas; proveedor detalle + sumado, sin cliente ni precio). Historial ya estaba (paso 4).
-8. [ ] Panel de inicio, datos de demostración, pulido.
+8. [x] Panel de inicio por rol, «Mi perfil» (teléfono y contraseña), DemoSeeder con estados variados.
+9. [ ] Despliegue en el VPS de Taller-sis (tras subirlo a KVM 2): compose de producción, dominio, HTTPS.
