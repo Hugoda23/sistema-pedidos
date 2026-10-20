@@ -15,7 +15,7 @@ export default function DataTable({ columnas, datos, pagina, onPagina, cargando,
             {tabla.getHeaderGroups().map((g) => (
               <tr key={g.id}>
                 {g.headers.map((h) => (
-                  <th key={h.id} className="whitespace-nowrap px-4 py-3 font-medium">
+                  <th key={h.id} className="whitespace-nowrap px-3 py-3 font-medium">
                     {flexRender(h.column.columnDef.header, h.getContext())}
                   </th>
                 ))}
@@ -26,7 +26,7 @@ export default function DataTable({ columnas, datos, pagina, onPagina, cargando,
             {tabla.getRowModel().rows.map((fila) => (
               <tr key={fila.id} className={`hover:bg-slate-50 ${claseFila?.(fila.original) ?? ''}`}>
                 {fila.getVisibleCells().map((c) => (
-                  <td key={c.id} className="whitespace-nowrap px-4 py-2.5 text-slate-700">
+                  <td key={c.id} className="whitespace-nowrap px-3 py-2.5 text-slate-700">
                     {flexRender(c.column.columnDef.cell, c.getContext())}
                   </td>
                 ))}
