@@ -52,3 +52,10 @@ export async function descargar(ruta, params, nombre) {
   enlace.click()
   setTimeout(() => URL.revokeObjectURL(enlace.href), 1000)
 }
+
+/** GET que devuelve texto (p. ej. el HTML del comprobante para la vista previa). */
+export async function apiTexto(ruta) {
+  const res = await fetch(`/api${ruta}`, { headers: { Authorization: `Bearer ${token.get()}`, Accept: 'text/html' } })
+  if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null))
+  return res.text()
+}

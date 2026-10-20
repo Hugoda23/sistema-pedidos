@@ -58,10 +58,10 @@ class Avisos
 
         foreach ($items->groupBy(fn (PedidoItem $i) => $i->pedido->vendedor_id) as $lineas) {
             $vendedor = $lineas->first()->pedido->vendedor;
-            $texto = "📦 *Pedido #{$lote->id} cerrado*\n\nIncluye tus repuestos:\n"
+            $texto = "📦 *Pedido #{$lote->id} cerrado*\n\nIncluye sus repuestos:\n"
                 .$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i))->implode("\n");
 
-            $vendedor->notify(new Aviso("Pedido #{$lote->id} cerrado", $lineas->count().' de tus líneas van en este pedido.', '/pedidos'));
+            $vendedor->notify(new Aviso("Pedido #{$lote->id} cerrado", $lineas->count().' de sus líneas van en este pedido.', '/pedidos'));
             $enlaces[] = ['para' => $vendedor->name, 'lineas' => $lineas->count(), 'url' => WhatsApp::enlace($vendedor->telefono, $texto)];
         }
 
@@ -116,7 +116,7 @@ class Avisos
     /** Texto del vendedor al proveedor preguntando por líneas sin existencia. */
     public function preguntaIngreso(Collection $lineas): string
     {
-        return "Hola 👋 ¿ya ingresaron estos repuestos?\n\n"
+        return "Buen día, ¿ya ingresaron estos repuestos?\n\n"
             .$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i).($i->fecha_ingreso ? ' — aprox. '.$i->fecha_ingreso->format('d/m/Y') : ''))->implode("\n");
     }
 

@@ -38,6 +38,12 @@ Pruebas (usan la base `pedidos_testing`, no tocan la de desarrollo):
 docker compose exec app php artisan test
 ```
 
+## Comprobante del pedido
+
+En el pedido, «Imprimir / PDF» abre una vista previa (misma plantilla que el PDF:
+`resources/views/comprobantes/pedido.blade.php`) con botones Imprimir y Descargar PDF.
+El encabezado sale de `NEGOCIO_NOMBRE`, `NEGOCIO_TELEFONO`, `NEGOCIO_DIRECCION` y `NEGOCIO_NIT` en `.env`.
+
 ## WhatsApp
 
 Sin sesiones ni QR: los avisos son botones verdes que abren el WhatsApp de quien hace clic

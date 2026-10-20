@@ -11,6 +11,7 @@ use App\Services\Avisos;
 use App\Services\PedidoService;
 use App\Support\WhatsApp;
 use App\Support\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpSpreadsheet\Shared\Date as FechaExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\User;
@@ -70,6 +71,21 @@ class PedidoController extends Controller
                     $i->cantidad * (float) $i->precio, $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
                 ])), [5 => Excel::QUETZALES, 6 => Excel::QUETZALES, 8 => Excel::FECHA])
             ->descargar('pedidos-'.now()->format('Y-m-d').'.xlsx');
+    }
+
+    /** Comprobante para el cliente: HTML para la vista previa e impresión, o PDF para descargar. */
+    public function comprobante(Request $request, Pedido $pedido)
+    {
+        $this->autorizar($request, $pedido);
+        $pedido->load(['cliente', 'vendedor:id,name', 'items', 'pagos']);
+        $vista = view('comprobantes.pedido', ['pedido' => $pedido]);
+
+        if ($request->query('formato') === 'pdf') {
+            return Pdf::loadHTML($vista->render())->setPaper('letter')
+                ->download("pedido-{$pedido->numero}.pdf");
+        }
+
+        return response($vista->render())->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     /** Filtros compartidos por el listado y la exportación. */

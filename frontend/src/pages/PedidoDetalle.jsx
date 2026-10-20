@@ -9,6 +9,7 @@ import Autocompletar from '../components/Autocompletar'
 import { buscarProductos } from '../lib/busquedas'
 import { EstadoItem, EstadoPedido } from '../components/EstadoBadge'
 import WhatsappCliente from '../components/WhatsappCliente'
+import VistaPreviaComprobante from '../components/VistaPreviaComprobante'
 import BotonWhatsapp from '../components/BotonWhatsapp'
 import { Alerta, Boton, Campo, Input, Modal, Textarea } from '../components/ui'
 
@@ -20,6 +21,7 @@ export default function PedidoDetalle() {
   const [historial, setHistorial] = useState(null)
   const [anular, setAnular] = useState(false)
   const [wa, setWa] = useState(false)
+  const [comprobante, setComprobante] = useState(false)
   const gestiona = puede('pedidos.gestionar')
 
   const cargar = useCallback(() => api(`/pedidos/${id}`).then(setP).catch((e) => setError(e.status === 404 ? 'Pedido no encontrado.' : e.message)), [id])
@@ -61,6 +63,7 @@ export default function PedidoDetalle() {
           <p className="text-sm text-slate-500">{fechaHora(p.fecha)} · Vendedor: {p.vendedor.name}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Boton variante="secundario" onClick={() => setComprobante(true)}>🖨 Imprimir / PDF</Boton>
           {gestiona && !p.anulado && <Boton variante="secundario" onClick={() => setWa(true)}>💬 WhatsApp al cliente</Boton>}
           {puede('pedidos.anular') && !p.anulado && <Boton variante="peligro" onClick={() => setAnular(true)}>Anular pedido</Boton>}
         </div>
@@ -141,7 +144,11 @@ export default function PedidoDetalle() {
         </Modal>
       )}
 
-      {wa && <WhatsappCliente pedido={p} onCerrar={() => setWa(false)} />}
+      {wa && <WhatsappCliente pedido={p} onCerrar={() => setWa(false)} plantilla={wa === 'detalle' ? 'detalle' : undefined} />}
+      {comprobante && (
+        <VistaPreviaComprobante pedido={p} onCerrar={() => setComprobante(false)}
+          onWhatsapp={gestiona && !p.anulado ? () => { setComprobante(false); setWa('detalle') } : null} />
+      )}
       {anular && <AnularPedido p={p} onCerrar={() => setAnular(false)} onListo={(nuevo) => { setP(nuevo); setAnular(false) }} />}
     </div>
   )
