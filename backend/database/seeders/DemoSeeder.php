@@ -7,7 +7,6 @@ use App\Models\Cliente;
 use App\Models\Lote;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
-use App\Models\Producto;
 use App\Models\User;
 use App\Services\Avisos;
 use App\Services\PedidoService;
@@ -37,6 +36,12 @@ class DemoSeeder extends Seeder
     private array $agenda = [];
 
     private int $secuencia = 0;
+
+    /** Repuestos de ejemplo [código, nombre, precio]; no se guardan como catálogo, solo se usan para inventar pedidos. */
+    private array $repuestos = [];
+
+    /** Códigos que el proveedor marcó descontinuados: el vendedor ya no los vuelve a pedir. */
+    private array $descontinuados = [];
 
     public function run(PedidoService $pedidos, Avisos $avisos): void
     {
@@ -142,9 +147,7 @@ class DemoSeeder extends Seeder
             ['AMO-T-XR150', 'Amortiguador trasero XR150', 650], ['RET-FZ-HORQ', 'Retenedores de horquilla FZ', 85],
             ['EMP-CLU-GN125', 'Discos de clutch GN125', 210], ['ACE-20W50-1L', 'Aceite 20W-50 4T (1 litro)', 55],
         ];
-        foreach ($productos as [$codigo, $nombre, $precio]) {
-            Producto::firstOrCreate(['codigo' => $codigo], ['nombre' => $nombre, 'precio_venta' => $precio]);
-        }
+        $this->repuestos = $productos;
     }
 
     private function clientes(Collection $vendedores): Collection
@@ -169,13 +172,14 @@ class DemoSeeder extends Seeder
     private function nuevoPedido(User $vendedor, Cliente $cliente, Carbon $cuando): void
     {
         // Solo lo que el proveedor aún trabaja.
-        $productos = Producto::where('descontinuado', false)->inRandomOrder(mt_rand())->limit(mt_rand(1, 4))->get();
-        $items = $productos->map(fn (Producto $p) => [
-            'codigo' => $p->codigo,
-            'descripcion' => $p->nombre,
+        $disponibles = array_values(array_filter($this->repuestos, fn ($r) => ! in_array($r[0], $this->descontinuados, true)));
+        $elegidos = (array) array_rand($disponibles, mt_rand(1, 4));
+        $items = array_map(fn ($i) => [
+            'codigo' => $disponibles[$i][0],
+            'descripcion' => $disponibles[$i][1],
             'cantidad' => mt_rand(1, 10) <= 7 ? 1 : mt_rand(2, 4),
-            'precio' => round((float) $p->precio_venta * mt_rand(95, 110) / 100 / 5) * 5,
-        ])->all();
+            'precio' => round($disponibles[$i][2] * mt_rand(95, 110) / 100 / 5) * 5,
+        ], $elegidos);
         $total = collect($items)->sum(fn ($i) => $i['cantidad'] * $i['precio']);
         $anticipo = mt_rand(1, 10) <= 6 ? round($total * mt_rand(30, 60) / 100 / 10) * 10 : 0;
 
@@ -243,7 +247,7 @@ class DemoSeeder extends Seeder
             }
         }
         if ($estado === EstadoItem::Descontinuado) {
-            Producto::whereIn('id', $items->pluck('producto_id'))->update(['descontinuado' => true]);
+            $this->descontinuados = array_merge($this->descontinuados, $items->pluck('codigo')->all());
         }
         Pedido::whereIn('id', $items->pluck('pedido_id')->unique())->get()->each->recalcular();
 

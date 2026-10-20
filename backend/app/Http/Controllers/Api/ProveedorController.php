@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Lote;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
-use App\Models\Producto;
 use App\Services\Avisos;
 use App\Services\WhatsApp\WhatsAppCliente;
 use App\Support\Excel;
@@ -145,10 +144,6 @@ class ProveedorController extends Controller
                 $item->cambiarEstado($nuevo, $request->user(), $datos['nota'] ?? null, $datos['fecha_ingreso'] ?? null);
             }
 
-            if ($nuevo === EstadoItem::Descontinuado) {
-                Producto::whereIn('id', $items->pluck('producto_id'))->update(['descontinuado' => true]);
-            }
-
             Pedido::whereIn('id', $items->pluck('pedido_id')->unique())->get()->each->recalcular();
 
             return $items;
@@ -180,7 +175,7 @@ class ProveedorController extends Controller
             ->when($request->query('lote_id'), fn ($w, $l) => $w->where('lote_id', $l))
             ->when($request->query('vendedor_id'), fn ($w, $v) => $w->whereHas('pedido', fn ($p) => $p->where('vendedor_id', $v)))
             ->when($q !== '', fn ($w) => $w->where(fn ($w) => $w
-                ->where('codigo', 'like', '%'.Producto::normalizarCodigo($q).'%')
+                ->where('codigo', 'like', '%'.PedidoItem::normalizarCodigo($q).'%')
                 ->orWhereRaw('descripcion ILIKE ?', ["%{$q}%"])));
     }
 

@@ -113,6 +113,7 @@ return [
         'permisos' => 'permisos',
         'nombre' => 'nombre',
         'codigo' => 'código',
+        'descripcion' => 'nombre del repuesto',
         'cantidad' => 'cantidad',
         'precio' => 'precio',
         'anticipo' => 'anticipo',

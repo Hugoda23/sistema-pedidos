@@ -83,7 +83,7 @@ class RolController extends Controller
     /** Permisos agrupados por módulo (lo que va antes del punto). */
     private function catalogo(): array
     {
-        $modulos = ['usuarios' => 'Usuarios', 'roles' => 'Roles', 'clientes' => 'Clientes', 'productos' => 'Productos',
+        $modulos = ['usuarios' => 'Usuarios', 'roles' => 'Roles', 'clientes' => 'Clientes',
             'pedidos' => 'Pedidos', 'proveedor' => 'Proveedor', 'reportes' => 'Reportes'];
 
         return collect(config('permisos.permisos'))

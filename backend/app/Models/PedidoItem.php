@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PedidoItem extends Model
 {
-    protected $fillable = ['pedido_id', 'producto_id', 'lote_id', 'codigo', 'descripcion', 'cantidad', 'precio',
+    protected $fillable = ['pedido_id', 'lote_id', 'codigo', 'descripcion', 'cantidad', 'precio',
         'estado', 'fecha_ingreso', 'ingreso_notificado', 'nota_proveedor'];
 
     protected function casts(): array
@@ -28,11 +28,6 @@ class PedidoItem extends Model
         return $this->belongsTo(Pedido::class);
     }
 
-    public function producto(): BelongsTo
-    {
-        return $this->belongsTo(Producto::class);
-    }
-
     public function lote(): BelongsTo
     {
         return $this->belongsTo(Lote::class);
@@ -41,6 +36,12 @@ class PedidoItem extends Model
     public function historial(): HasMany
     {
         return $this->hasMany(PedidoItemHistorial::class)->orderBy('id');
+    }
+
+    /** "lod-123 " y "LOD123" son el mismo repuesto: mayúsculas y sin espacios. */
+    public static function normalizarCodigo(string $codigo): string
+    {
+        return mb_strtoupper(preg_replace('/\s+/', '', $codigo));
     }
 
     /** Mientras el lote siga abierto el proveedor no lo ha tomado: se puede corregir o quitar. */

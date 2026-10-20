@@ -5,7 +5,6 @@ import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Usuarios from './pages/Usuarios'
 import Clientes from './pages/Clientes'
-import Productos from './pages/Productos'
 import Pedidos from './pages/Pedidos'
 import NuevoPedido from './pages/NuevoPedido'
 import PedidoDetalle from './pages/PedidoDetalle'
@@ -32,7 +31,6 @@ export default function App() {
         <Route path="pedidos/nuevo" element={<Protegida permiso="pedidos.gestionar"><NuevoPedido /></Protegida>} />
         <Route path="pedidos/:id" element={<Protegida permiso="pedidos.ver"><PedidoDetalle /></Protegida>} />
         <Route path="clientes" element={<Protegida permiso="clientes.ver"><Clientes /></Protegida>} />
-        <Route path="productos" element={<Protegida permiso="productos.ver"><Productos /></Protegida>} />
         <Route path="proveedor" element={<Protegida permiso="proveedor.ver"><Proveedor /></Protegida>} />
         <Route path="usuarios" element={<Protegida permiso="usuarios.ver"><Usuarios /></Protegida>} />
         <Route path="perfil" element={<Perfil />} />

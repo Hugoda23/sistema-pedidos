@@ -5,8 +5,6 @@ import { useAuth } from '../lib/auth'
 import { primerError } from '../lib/errores'
 import { ACCION_ITEM } from '../lib/estados'
 import { fecha, fechaHora, moneda } from '../lib/formato'
-import Autocompletar from '../components/Autocompletar'
-import { buscarProductos } from '../lib/busquedas'
 import { EstadoItem, EstadoPedido } from '../components/EstadoBadge'
 import WhatsappCliente from '../components/WhatsappCliente'
 import VistaPreviaComprobante from '../components/VistaPreviaComprobante'
@@ -217,12 +215,9 @@ function AgregarLinea({ pedidoId, accion }) {
   return (
     <form onSubmit={agregar} className="grid gap-2 border-t bg-slate-50 p-3 sm:grid-cols-12">
       <div className="sm:col-span-3">
-        <Autocompletar value={l.codigo} onChange={(v) => setL({ ...l, codigo: v })} required
-          onElegir={(p) => setL({ ...l, codigo: p.codigo, descripcion: p.nombre, precio: l.precio || p.precio_venta || '' })}
-          buscar={buscarProductos} placeholder="Código" className="font-mono uppercase"
-          render={(p) => <><span className="font-mono font-medium">{p.codigo}</span> <span className="text-slate-500">{p.nombre}</span></>} />
+        <Input required placeholder="Código" aria-label="Código" className="font-mono uppercase" value={l.codigo} onChange={(e) => setL({ ...l, codigo: e.target.value })} />
       </div>
-      <Input className="sm:col-span-4" required placeholder="Descripción" value={l.descripcion} onChange={(e) => setL({ ...l, descripcion: e.target.value })} />
+      <Input className="sm:col-span-4" required placeholder="Nombre del repuesto" aria-label="Nombre del repuesto" value={l.descripcion} onChange={(e) => setL({ ...l, descripcion: e.target.value })} />
       <Input className="sm:col-span-1" type="number" min="1" required value={l.cantidad} onChange={(e) => setL({ ...l, cantidad: e.target.value })} aria-label="Cantidad" />
       <Input className="sm:col-span-2" type="number" min="0" step="0.01" required placeholder="Precio" value={l.precio} onChange={(e) => setL({ ...l, precio: e.target.value })} />
       <Boton className="sm:col-span-2" variante="secundario" icono={PlusIcon}>Agregar</Boton>

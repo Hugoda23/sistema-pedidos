@@ -10,8 +10,6 @@ return [
         'roles.gestionar' => 'Crear y editar roles',
         'clientes.ver' => 'Ver clientes',
         'clientes.gestionar' => 'Crear y editar clientes',
-        'productos.ver' => 'Ver productos',
-        'productos.gestionar' => 'Crear y editar productos',
         'pedidos.ver' => 'Ver sus pedidos',
         'pedidos.ver_todos' => 'Ver pedidos de todos los vendedores',
         'pedidos.gestionar' => 'Crear y editar pedidos',
@@ -25,7 +23,7 @@ return [
     'roles' => [
         'Administrador' => '*',
         'Vendedor' => [
-            'clientes.ver', 'clientes.gestionar', 'productos.ver', 'productos.gestionar',
+            'clientes.ver', 'clientes.gestionar',
             'pedidos.ver', 'pedidos.gestionar', 'reportes.ver',
         ],
         'Proveedor' => [

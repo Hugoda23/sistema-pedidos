@@ -3,7 +3,7 @@ export const ESTADO_PEDIDO = {
   en_proceso: ['En proceso', 'azul'],
   listo: ['Listo para entregar', 'amarillo'],
   entregado: ['Entregado', 'verde'],
-  sin_productos: ['Sin productos', 'rojo'],
+  sin_productos: ['Sin repuestos', 'rojo'],
   anulado: ['Anulado', 'rojo'],
 }
 

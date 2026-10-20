@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import Campanita from './Campanita'
 import {
-  Bars3Icon, ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, CubeIcon, HomeIcon,
+  Bars3Icon, ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, HomeIcon,
   ShieldCheckIcon, TruckIcon, UserGroupIcon, UsersIcon,
 } from '@heroicons/react/24/outline'
 
@@ -12,7 +12,6 @@ const MENU = [
   { to: '/', label: 'Inicio', permiso: null, icono: HomeIcon },
   { to: '/pedidos', label: 'Pedidos', permiso: 'pedidos.ver', icono: ClipboardDocumentListIcon },
   { to: '/clientes', label: 'Clientes', permiso: 'clientes.ver', icono: UserGroupIcon },
-  { to: '/productos', label: 'Productos', permiso: 'productos.ver', icono: CubeIcon },
   { to: '/proveedor', label: 'Repuestos solicitados', permiso: 'proveedor.ver', icono: TruckIcon },
   { to: '/usuarios', label: 'Usuarios', permiso: 'usuarios.ver', icono: UsersIcon },
   { to: '/roles', label: 'Roles y permisos', permiso: 'roles.ver', icono: ShieldCheckIcon },

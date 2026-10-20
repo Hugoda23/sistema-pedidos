@@ -23,7 +23,7 @@ sin existencia, descontinuados, notificaciones). Todos con contraseña `password
 | Usuario | Rol | Para probar |
 |---|---|---|
 | `admin@pedidos.test` | Administrador | todo: usuarios, roles, anular pedidos, ve ventas y proveedor |
-| `vendedor@pedidos.test` (Carlos Méndez) | Vendedor | sus pedidos, clientes, productos |
+| `vendedor@pedidos.test` (Carlos Méndez) | Vendedor | sus pedidos y clientes |
 | `maria@pedidos.test` | Vendedor | ídem |
 | `jose@pedidos.test` | Vendedor | sin teléfono: el proveedor no puede avisarle por WhatsApp |
 | `proveedor@pedidos.test` | Proveedor | repuestos solicitados, cerrar pedido, Excel |

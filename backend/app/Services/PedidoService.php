@@ -6,7 +6,6 @@ use App\Enums\EstadoItem;
 use App\Models\Lote;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
-use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -42,27 +41,13 @@ class PedidoService
         });
     }
 
-    /** Agrega una línea; si el código no existe, crea el producto. */
+    /** Agrega una línea con el código y nombre que escribió el vendedor (no hay catálogo). */
     public function agregarItem(Pedido $pedido, array $item, User $user, string $campo = 'codigo'): PedidoItem
     {
-        $codigo = Producto::normalizarCodigo($item['codigo']);
-        $producto = Producto::where('codigo', $codigo)->first();
-
-        if ($producto?->descontinuado) {
-            throw ValidationException::withMessages([$campo => "El producto {$codigo} está descontinuado."]);
-        }
-
-        if (! $producto) {
-            $producto = Producto::create(['codigo' => $codigo, 'nombre' => $item['descripcion'], 'precio_venta' => $item['precio']]);
-        } else {
-            $producto->update(['precio_venta' => $item['precio']]);
-        }
-
         $linea = $pedido->items()->create([
-            'producto_id' => $producto->id,
             'lote_id' => Lote::actual()->id,
-            'codigo' => $codigo,
-            'descripcion' => $item['descripcion'] ?: $producto->nombre,
+            'codigo' => PedidoItem::normalizarCodigo($item['codigo']),
+            'descripcion' => trim($item['descripcion']),
             'cantidad' => $item['cantidad'],
             'precio' => $item['precio'],
             'estado' => EstadoItem::Pendiente,

@@ -230,7 +230,7 @@ function DialogoEstado({ dialogo, onCerrar, onEnviar }) {
   const titulo = dialogo.fila ? `${dialogo.fila.codigo} · ${dialogo.fila.descripcion}` : `${cuantos} línea(s)`
 
   return (
-    <Modal abierto titulo={noDisp ? 'No disponible' : 'Producto descontinuado'} onCerrar={onCerrar}>
+    <Modal abierto titulo={noDisp ? 'No disponible' : 'Repuesto descontinuado'} onCerrar={onCerrar}>
       <form onSubmit={enviar} className="space-y-3">
         <p className="text-sm text-slate-600">{titulo}</p>
         {!Object.keys(errores).length && <Alerta>{msg}</Alerta>}
@@ -239,7 +239,7 @@ function DialogoEstado({ dialogo, onCerrar, onEnviar }) {
             <Input type="date" required min={hoy()} value={fechaIngreso} onChange={(e) => setFechaIngreso(e.target.value)} />
           </Campo>
         ) : (
-          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">El producto quedará marcado como descontinuado y los vendedores ya no podrán pedirlo.</p>
+          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">La línea quedará como descontinuada, ya no se le cobrará al cliente y se le avisará al vendedor.</p>
         )}
         {errores.ids && <Alerta>{errores.ids}</Alerta>}
         <Campo label="Nota para el vendedor (opcional)" error={errores.nota}>

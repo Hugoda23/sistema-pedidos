@@ -7,7 +7,6 @@ use App\Models\Cliente;
 use App\Models\Lote;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
-use App\Models\Producto;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -46,7 +45,7 @@ class PedidosTest extends TestCase
         return PedidoItem::findOrFail($pedido['items'][$i]['id']);
     }
 
-    public function test_crea_pedido_con_varias_lineas_anticipo_y_productos_nuevos(): void
+    public function test_crea_pedido_con_varias_lineas_y_anticipo(): void
     {
         $p = $this->crearPedido();
 
@@ -58,25 +57,24 @@ class PedidosTest extends TestCase
         $this->assertSame('anticipo', $p['pagos'][0]['tipo']);
         $this->assertSame('LOD-1', $p['items'][0]['codigo']);
 
-        // Los códigos nuevos quedan en el catálogo con su último precio, y todo cae en el lote abierto.
-        $this->assertSame('150.00', Producto::where('codigo', 'LOD-1')->value('precio_venta'));
+        // No hay catálogo: el código y nombre viven solo en la línea. Todo cae en el lote abierto.
+        $this->assertSame('Lodera trasera', $p['items'][0]['descripcion']);
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasTable('productos'));
         $this->assertSame(1, Lote::count());
         $this->assertSame(2, PedidoItem::where('lote_id', Lote::first()->id)->count());
     }
 
-    public function test_usa_producto_existente_y_rechaza_descontinuado(): void
+    public function test_codigo_se_normaliza_y_el_nombre_es_obligatorio(): void
     {
-        Producto::factory()->create(['codigo' => 'LOD-1', 'nombre' => 'Lodera', 'precio_venta' => 100]);
-        Producto::factory()->create(['codigo' => 'VIEJO', 'descontinuado' => true]);
-
-        $this->crearPedido();
-        $this->assertSame(1, Producto::where('codigo', 'LOD-1')->count());
-        $this->assertSame('150.00', Producto::where('codigo', 'LOD-1')->value('precio_venta'));
+        $this->actingAs($this->vendedor)->postJson('/api/pedidos', [
+            'cliente_id' => $this->cliente->id,
+            'items' => [['codigo' => ' lod 9 ', 'descripcion' => 'Lodera', 'cantidad' => 1, 'precio' => 10]],
+        ])->assertCreated()->assertJsonPath('items.0.codigo', 'LOD9');
 
         $this->postJson('/api/pedidos', [
             'cliente_id' => $this->cliente->id,
-            'items' => [['codigo' => 'viejo', 'descripcion' => 'x', 'cantidad' => 1, 'precio' => 1]],
-        ])->assertStatus(422)->assertJsonValidationErrors('items.0.codigo');
+            'items' => [['codigo' => 'X1', 'descripcion' => '', 'cantidad' => 1, 'precio' => 10]],
+        ])->assertStatus(422)->assertJsonValidationErrors('items.0.descripcion');
     }
 
     public function test_valida_lineas_y_anticipo(): void

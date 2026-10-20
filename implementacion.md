@@ -12,7 +12,7 @@
 
 ## Modelo
 - `clientes`: nombre, teléfono, moto, notas.
-- `productos`: código (único), nombre; se llena solo al pedir.
+- Sin catálogo de productos (quitado 2026-10-19 a pedido del cliente): cada línea guarda su código y nombre.
 - `pedidos` (del cliente): número, cliente, vendedor, total, pagado, estado, notas, anulación.
 - `pagos`: anticipo (el primero) y abonos; saldo = total − pagado.
 - `pedido_items`: pedido, producto/código, descripción, cantidad, precio venta, estado,
@@ -24,7 +24,7 @@
 ## Pasos (un commit por paso, pruebas en verde)
 1. [x] Docker + Laravel + React + login (Sanctum por token, roles base).
 2. [x] Usuarios, roles y permisos (CRUD; spatie/permission).
-3. [x] Clientes y productos.
+3. [x] Clientes (el catálogo de productos se quitó después).
 4. [x] Pedidos de clientes con varias líneas, anticipo y abonos (tabla `pagos`).
 5. [x] Tabla del proveedor (sin cliente ni precio) + estados + cierre de lote.
 6. [x] Fecha aprox. de ingreso → tarea diaria (08:00) + campanita + WhatsApp por usuario (whatsapp-web.js).

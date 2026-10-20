@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Cliente;
 use App\Models\Lote;
 use App\Models\PedidoItem;
-use App\Models\Producto;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -111,12 +110,12 @@ class ProveedorTest extends TestCase
         $this->getJson('/api/proveedor/items?estado=revisar')->assertJsonCount(1, 'data');
     }
 
-    public function test_descontinuado_marca_el_producto_y_saca_la_linea_del_total(): void
+    public function test_descontinuado_saca_la_linea_del_total(): void
     {
         $this->actingAs($this->proveedor)->postJson('/api/proveedor/items/estado', ['ids' => $this->ids(1), 'estado' => 'descontinuado', 'nota' => 'Ya no se fabrica'])
             ->assertOk();
 
-        $this->assertTrue(Producto::where('codigo', 'PF-9')->value('descontinuado'));
+        $this->assertSame('descontinuado', PedidoItem::find($this->ids(1)[0])->estado->value);
         $this->actingAs($this->vendedor)->getJson("/api/pedidos/{$this->pedido['id']}")->assertJsonPath('total', '300.00');
     }
 

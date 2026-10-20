@@ -3,13 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Cliente;
-use App\Models\Producto;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class ClientesYProductosTest extends TestCase
+class ClientesTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -42,32 +41,11 @@ class ClientesYProductosTest extends TestCase
         }
     }
 
-    public function test_codigo_de_producto_se_normaliza_y_es_unico(): void
-    {
-        $this->actingAs($this->vendedor)->postJson('/api/productos', ['codigo' => ' lod 123 ', 'nombre' => 'Lodera'])
-            ->assertCreated()->assertJsonPath('codigo', 'LOD123');
-
-        $this->postJson('/api/productos', ['codigo' => 'Lod123', 'nombre' => 'Otra'])
-            ->assertStatus(422)->assertJsonPath('errors.codigo.0', 'Ya existe un producto con ese código.');
-    }
-
-    public function test_buscar_producto_pone_primero_el_codigo_exacto(): void
-    {
-        Producto::factory()->create(['codigo' => 'XLOD1', 'nombre' => 'Otra cosa']);
-        Producto::factory()->create(['codigo' => 'LOD1-B', 'nombre' => 'Lodera B']);
-        Producto::factory()->create(['codigo' => 'LOD1', 'nombre' => 'Lodera']);
-
-        $this->actingAs($this->vendedor)->getJson('/api/productos/buscar?q=lod1')
-            ->assertOk()->assertJsonPath('0.codigo', 'LOD1')->assertJsonPath('1.codigo', 'LOD1-B')->assertJsonCount(3);
-    }
-
-    public function test_proveedor_no_ve_clientes_ni_productos_con_precio(): void
+    public function test_proveedor_no_ve_clientes(): void
     {
         $prov = User::factory()->create()->assignRole('Proveedor');
 
         $this->actingAs($prov)->getJson('/api/clientes')->assertForbidden();
-        $this->getJson('/api/productos')->assertForbidden();
-        $this->getJson('/api/productos/buscar?q=a')->assertForbidden();
     }
 
     public function test_editar_y_eliminar_cliente(): void

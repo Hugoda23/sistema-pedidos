@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { primerError } from '../lib/errores'
 import { moneda } from '../lib/formato'
 import Autocompletar from '../components/Autocompletar'
-import { buscarClientes, buscarProductos } from '../lib/busquedas'
+import { buscarClientes } from '../lib/busquedas'
 import FormModal from '../components/FormModal'
 import { CamposCliente } from './Clientes'
 import { Alerta, Boton, Campo, Encabezado, Input, Textarea } from '../components/ui'
@@ -27,8 +27,6 @@ export default function NuevoPedido() {
   const [guardando, setGuardando] = useState(false)
 
   const cambiar = (i, campo, valor) => setLineas((ls) => ls.map((l, j) => (j === i ? { ...l, [campo]: valor } : l)))
-  const elegirProducto = (i, p) => setLineas((ls) => ls.map((l, j) => (j === i
-    ? { ...l, codigo: p.codigo, descripcion: p.nombre, precio: l.precio || p.precio_venta || '' } : l)))
 
   const total = lineas.reduce((s, l) => s + (Number(l.cantidad) || 0) * (Number(l.precio) || 0), 0)
 
@@ -82,18 +80,16 @@ export default function NuevoPedido() {
       </section>
 
       <section className="mt-4 rounded-xl border bg-white p-4">
-        <h2 className="mb-2 font-semibold text-slate-700">Productos</h2>
+        <h2 className="mb-2 font-semibold text-slate-700">Repuestos</h2>
         <div className="space-y-3">
           {lineas.map((l, i) => (
             <div key={l.clave} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-12 sm:border-0 sm:p-0">
               <div className="sm:col-span-3">
-                <Autocompletar value={l.codigo} onChange={(v) => cambiar(i, 'codigo', v)} onElegir={(p) => elegirProducto(i, p)}
-                  buscar={buscarProductos} placeholder="Código" className="font-mono uppercase"
-                  render={(p) => <><span className="font-mono font-medium">{p.codigo}</span> <span className="text-slate-500">{p.nombre}</span>{p.descontinuado && <span className="ml-1 text-red-600">(descontinuado)</span>}</>} />
+                <Input placeholder="Código" className="font-mono uppercase" value={l.codigo} onChange={(e) => cambiar(i, 'codigo', e.target.value)} aria-label="Código" />
                 {errores[`items.${i}.codigo`] && <p className="mt-1 text-xs text-red-600">{errores[`items.${i}.codigo`]}</p>}
               </div>
               <div className="sm:col-span-4">
-                <Input placeholder="Descripción" value={l.descripcion} onChange={(e) => cambiar(i, 'descripcion', e.target.value)} />
+                <Input placeholder="Nombre del repuesto" aria-label="Nombre del repuesto" value={l.descripcion} onChange={(e) => cambiar(i, 'descripcion', e.target.value)} />
                 {errores[`items.${i}.descripcion`] && <p className="mt-1 text-xs text-red-600">{errores[`items.${i}.descripcion`]}</p>}
               </div>
               <Input className="sm:col-span-1" type="number" min="1" placeholder="Cant." value={l.cantidad} onChange={(e) => cambiar(i, 'cantidad', e.target.value)} aria-label="Cantidad" />
@@ -108,7 +104,7 @@ export default function NuevoPedido() {
           ))}
         </div>
         {errores.items && <p className="mt-2 text-sm text-red-600">{errores.items}</p>}
-        <button className="mt-3 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline" onClick={() => setLineas([...lineas, lineaVacia()])}><PlusIcon className="h-4 w-4" />Agregar otro producto</button>
+        <button className="mt-3 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline" onClick={() => setLineas([...lineas, lineaVacia()])}><PlusIcon className="h-4 w-4" />Agregar otro repuesto</button>
       </section>
 
       <section className="mt-4 grid gap-4 rounded-xl border bg-white p-4 sm:grid-cols-2">

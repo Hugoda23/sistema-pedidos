@@ -5,7 +5,6 @@ use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\NotificacionController;
 use App\Http\Controllers\Api\PanelController;
 use App\Http\Controllers\Api\PedidoController;
-use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\ProveedorController;
 use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\UsuarioController;
@@ -48,11 +47,6 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
     Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->middleware('permission:clientes.gestionar');
     Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])->middleware('permission:clientes.gestionar');
 
-    Route::get('/productos', [ProductoController::class, 'index'])->middleware('permission:productos.ver');
-    Route::get('/productos/buscar', [ProductoController::class, 'buscar'])->middleware('permission:productos.ver');
-    Route::post('/productos', [ProductoController::class, 'store'])->middleware('permission:productos.gestionar');
-    Route::put('/productos/{producto}', [ProductoController::class, 'update'])->middleware('permission:productos.gestionar');
-    Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->middleware('permission:productos.gestionar');
 
     Route::middleware('permission:pedidos.ver')->group(function () {
         Route::get('/pedidos', [PedidoController::class, 'index']);
