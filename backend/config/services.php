@@ -19,8 +19,8 @@ return [
     ],
 
     'whatsapp' => [
-        // Se antepone a los teléfonos de 8 dígitos al armar los enlaces wa.me.
-        'pais' => env('WHATSAPP_PAIS', '502'),
+        'url' => env('WHATSAPP_URL', 'http://pedidos_whatsapp:3000'),
+        'token' => env('WHATSAPP_TOKEN'),
     ],
 
     'resend' => [

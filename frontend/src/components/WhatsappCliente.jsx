@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { api } from '../lib/api'
 import { fecha, moneda } from '../lib/formato'
-import { enlaceWa } from '../lib/whatsapp'
-import BotonWhatsapp from './BotonWhatsapp'
-import { Alerta, Campo, Modal, Select, Textarea } from './ui'
+import { Alerta, Boton, Campo, Modal, Select, Textarea } from './ui'
 
 const lista = (items) => items.map((i) => `• ${i.descripcion} (${i.cantidad})`).join('\n')
 
@@ -25,31 +25,65 @@ function plantillas(p) {
   return t
 }
 
+/** El vendedor le escribe al cliente desde su WhatsApp vinculado; puede adjuntar el comprobante en PDF. */
 export default function WhatsappCliente({ pedido, onCerrar, plantilla }) {
   const opciones = useMemo(() => plantillas(pedido), [pedido])
   const inicial = opciones.find((o) => o[0] === plantilla) ?? opciones[0]
   const [clave, setClave] = useState(inicial[0])
   const [texto, setTexto] = useState(inicial[2])
-  const elegir = (k) => { setClave(k); setTexto(opciones.find((o) => o[0] === k)[2]) }
-  const url = enlaceWa(pedido.cliente.telefono, texto)
+  const [adjuntar, setAdjuntar] = useState(inicial[0] === 'detalle')
+  const [sesion, setSesion] = useState(null)
+  const [estado, setEstado] = useState({ tipo: 'error', msg: '' })
+  const [enviando, setEnviando] = useState(false)
+
+  useEffect(() => { api('/whatsapp').then(setSesion).catch(() => setSesion({ status: 'sin_servicio' })) }, [])
+
+  const elegir = (k) => {
+    setClave(k)
+    setTexto(opciones.find((o) => o[0] === k)[2])
+    if (k === 'detalle') setAdjuntar(true)
+  }
+  const vinculado = sesion?.status === 'conectado'
+
+  const enviar = async () => {
+    setEnviando(true)
+    try {
+      await api(`/pedidos/${pedido.id}/whatsapp`, { method: 'POST', body: { mensaje: texto, adjuntar } })
+      setEstado({ tipo: 'ok', msg: 'Mensaje enviado a la cola. Puede ver si salió en «Mi WhatsApp».' })
+    } catch (e) {
+      setEstado({ tipo: 'error', msg: e.errors?.mensaje?.[0] ?? e.message })
+    } finally {
+      setEnviando(false)
+    }
+  }
 
   return (
     <Modal abierto titulo={`WhatsApp a ${pedido.cliente.nombre}`} onCerrar={onCerrar}>
       {!pedido.cliente.telefono ? (
-        <Alerta>El cliente no tiene teléfono registrado. Agrégalo en Clientes.</Alerta>
+        <Alerta>El cliente no tiene teléfono registrado. Agréguelo en Clientes.</Alerta>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-slate-500">Para: {pedido.cliente.telefono}</p>
+          <p className="text-sm text-slate-500">Para: {pedido.cliente.telefono}{sesion?.numero && ` · Desde su número +${sesion.numero}`}</p>
           <Campo label="Plantilla">
             <Select value={clave} onChange={(e) => elegir(e.target.value)}>
               {opciones.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
             </Select>
           </Campo>
           <Campo label="Mensaje"><Textarea rows={7} value={texto} onChange={(e) => setTexto(e.target.value)} /></Campo>
-          {!url && <Alerta>El teléfono del cliente no parece válido. Corrígelo en Clientes.</Alerta>}
-          <p className="text-xs text-slate-500">Se abre su WhatsApp con el mensaje escrito; solo presione enviar.{clave === 'detalle' && ' Recuerde adjuntar el PDF del comprobante.'}</p>
-          <div className="flex justify-end">
-            <BotonWhatsapp url={url}>Abrir en WhatsApp</BotonWhatsapp>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={adjuntar} onChange={(e) => setAdjuntar(e.target.checked)} />
+            📎 Adjuntar el comprobante del pedido en PDF
+          </label>
+          <Alerta tipo={estado.tipo}>{estado.msg}</Alerta>
+          {sesion && !vinculado && (
+            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+              Su WhatsApp no está vinculado. <Link to="/whatsapp" className="font-medium underline">Vincúlelo en «Mi WhatsApp»</Link> para enviar desde el sistema.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            {estado.tipo === 'ok'
+              ? <Boton onClick={onCerrar}>Listo</Boton>
+              : <Boton onClick={enviar} disabled={!vinculado || enviando || !texto.trim()}>{enviando ? 'Enviando…' : 'Enviar por WhatsApp'}</Boton>}
           </div>
         </div>
       )}

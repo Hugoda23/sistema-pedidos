@@ -12,6 +12,7 @@ const MENU = [
   { to: '/proveedor', label: 'Repuestos solicitados', permiso: 'proveedor.ver' },
   { to: '/usuarios', label: 'Usuarios', permiso: 'usuarios.ver' },
   { to: '/roles', label: 'Roles y permisos', permiso: 'roles.ver' },
+  { to: '/whatsapp', label: 'Mi WhatsApp', permiso: null },
 ]
 
 export default function Layout() {

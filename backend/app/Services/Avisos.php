@@ -3,30 +3,38 @@
 namespace App\Services;
 
 use App\Enums\EstadoItem;
+use App\Jobs\EnviarWhatsapp;
 use App\Models\Lote;
+use App\Models\MensajeWhatsapp;
+use App\Models\Pedido;
 use App\Models\PedidoItem;
 use App\Models\User;
 use App\Notifications\Aviso;
-use App\Support\WhatsApp;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Collection as Modelos;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
- * Avisos del sistema: siempre van a la campanita, y además se arma el mensaje
- * de WhatsApp para que quien hizo la acción lo envíe desde su propio teléfono
- * con un clic (enlace wa.me con el texto ya escrito).
+ * Avisos del sistema: siempre van a la campanita y además por WhatsApp, enviados
+ * solos desde el WhatsApp vinculado de quien hizo la acción (el proveedor al cambiar
+ * estados; el vendedor al preguntar por un ingreso o escribirle a su cliente).
  */
 class Avisos
 {
+    /** El seeder de demostración lo apaga para no llenar la cola de mensajes. */
+    public bool $whatsapp = true;
+
     /**
-     * El proveedor marcó líneas. Devuelve un enlace de WhatsApp por vendedor afectado.
+     * El proveedor marcó líneas: a cada vendedor afectado, un solo mensaje con lo suyo.
      *
-     * @return array<int, array{para:string, lineas:int, url:?string}>
+     * @return array{enviados: string[], sin_telefono: string[]}
      */
-    public function proveedorActualizo(Collection $items, EstadoItem $estado, ?string $nota): array
+    public function proveedorActualizo(Collection $items, EstadoItem $estado, User $proveedor, ?string $nota): array
     {
         $items = Modelos::make($items->all())->load('pedido.vendedor');
-        $enlaces = [];
+        $resumen = ['enviados' => [], 'sin_telefono' => []];
 
         foreach ($items->groupBy(fn (PedidoItem $i) => $i->pedido->vendedor_id) as $lineas) {
             $vendedor = $lineas->first()->pedido->vendedor;
@@ -44,17 +52,17 @@ class Avisos
             $pedidos = $lineas->pluck('pedido_id')->unique();
             $vendedor->notify(new Aviso($titulo, $this->resumen($lineas), $pedidos->count() === 1 ? "/pedidos/{$pedidos->first()}" : '/pedidos'));
 
-            $enlaces[] = ['para' => $vendedor->name, 'lineas' => $lineas->count(), 'url' => WhatsApp::enlace($vendedor->telefono, $texto)];
+            $this->aUsuario($proveedor, $vendedor, $texto, 'estado_proveedor', $pedidos->count() === 1 ? $pedidos->first() : null, $resumen);
         }
 
-        return $enlaces;
+        return $resumen;
     }
 
-    /** El proveedor cerró el pedido consolidado: un enlace por vendedor con la lista de lo suyo. */
-    public function loteCerrado(Lote $lote): array
+    /** El proveedor cerró el pedido consolidado: cada vendedor recibe la lista de lo suyo. */
+    public function loteCerrado(Lote $lote, User $proveedor): array
     {
         $items = $lote->items()->with('pedido.vendedor')->where('estado', '!=', 'anulado')->get();
-        $enlaces = [];
+        $resumen = ['enviados' => [], 'sin_telefono' => []];
 
         foreach ($items->groupBy(fn (PedidoItem $i) => $i->pedido->vendedor_id) as $lineas) {
             $vendedor = $lineas->first()->pedido->vendedor;
@@ -62,15 +70,15 @@ class Avisos
                 .$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i))->implode("\n");
 
             $vendedor->notify(new Aviso("Pedido #{$lote->id} cerrado", $lineas->count().' de sus líneas van en este pedido.', '/pedidos'));
-            $enlaces[] = ['para' => $vendedor->name, 'lineas' => $lineas->count(), 'url' => WhatsApp::enlace($vendedor->telefono, $texto)];
+            $this->aUsuario($proveedor, $vendedor, $texto, 'lote_cerrado', null, $resumen);
         }
 
-        return $enlaces;
+        return $resumen;
     }
 
     /**
-     * Llegó la fecha aproximada de ingreso. Al proveedor le aparece en «Revisar ingreso»
-     * y en la campanita; al vendedor, en la campanita con el botón para preguntarle por WhatsApp.
+     * Llegó la fecha aproximada de ingreso: el vendedor le pregunta al proveedor
+     * (desde el WhatsApp del vendedor) si ya entró. Devuelve cuántas líneas se avisaron.
      */
     public function ingresosVencidos(): int
     {
@@ -85,27 +93,15 @@ class Avisos
             return 0;
         }
 
-        $proveedores = User::role('Proveedor')->where('activo', true)->get();
-
         foreach ($items->groupBy(fn (PedidoItem $i) => $i->pedido->vendedor_id) as $lineas) {
             $vendedor = $lineas->first()->pedido->vendedor;
-            $texto = $this->preguntaIngreso($lineas);
-
-            $botones = $proveedores->map(fn (User $p) => [
-                'texto' => 'Preguntar a '.$p->name,
-                'url' => WhatsApp::enlace($p->telefono, $texto),
-            ])->filter(fn ($b) => $b['url'])->values()->all();
+            $enviados = $this->preguntar($lineas, $vendedor, 'ingreso_vencido');
 
             $vendedor->notify(new Aviso(
                 'Fecha de ingreso cumplida',
-                $this->resumen($lineas).': ¿ya ingresó?',
+                $this->resumen($lineas).($enviados ? '. Se le preguntó al proveedor por WhatsApp.' : ': ¿ya ingresó?'),
                 $lineas->pluck('pedido_id')->unique()->count() === 1 ? "/pedidos/{$lineas->first()->pedido_id}" : '/pedidos',
-                $botones,
             ));
-
-            foreach ($proveedores as $proveedor) {
-                $proveedor->notify(new Aviso('¿Ya ingresaron?', "{$vendedor->name}: ".$this->resumen($lineas), '/proveedor?estado=revisar'));
-            }
         }
 
         PedidoItem::whereKey($items->modelKeys())->update(['ingreso_notificado' => today()]);
@@ -113,11 +109,82 @@ class Avisos
         return $items->count();
     }
 
-    /** Texto del vendedor al proveedor preguntando por líneas sin existencia. */
-    public function preguntaIngreso(Collection $lineas): string
+    /**
+     * El vendedor pregunta al proveedor por líneas sin existencia, desde su WhatsApp.
+     * Devuelve los nombres de los proveedores a los que se les envió.
+     */
+    public function preguntar(Collection $lineas, User $vendedor, string $tipo = 'pregunta_ingreso'): array
     {
-        return "Buen día, ¿ya ingresaron estos repuestos?\n\n"
+        $texto = "Buen día, ¿ya ingresaron estos repuestos?\n\n"
             .$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i).($i->fecha_ingreso ? ' — aprox. '.$i->fecha_ingreso->format('d/m/Y') : ''))->implode("\n");
+
+        $resumen = ['enviados' => [], 'sin_telefono' => []];
+        foreach (User::role('Proveedor')->where('activo', true)->get() as $proveedor) {
+            $proveedor->notify(new Aviso('¿Ya ingresaron?', "{$vendedor->name}: ".$this->resumen($lineas), '/proveedor?estado=revisar'));
+            $this->aUsuario($vendedor, $proveedor, $texto, $tipo, null, $resumen);
+        }
+
+        return $resumen['enviados'];
+    }
+
+    /** Mensaje del vendedor a su cliente, desde su WhatsApp; opcionalmente con el comprobante en PDF. */
+    public function alCliente(Pedido $pedido, User $vendedor, string $texto, bool $conComprobante = false): MensajeWhatsapp
+    {
+        $datos = [
+            'cliente_id' => $pedido->cliente_id,
+            'pedido_id' => $pedido->id,
+            'telefono' => $pedido->cliente->telefono,
+            'tipo' => 'cliente',
+            'mensaje' => $texto,
+        ];
+
+        if ($conComprobante) {
+            // Se guarda tal como está ahora: es lo que el cliente debe recibir aunque el pedido cambie después.
+            $pedido->load(['cliente', 'vendedor:id,name', 'items', 'pagos']);
+            $ruta = 'whatsapp/'.Str::uuid().'.pdf';
+            Storage::disk('local')->put($ruta, Pdf::loadView('comprobantes.pedido', ['pedido' => $pedido])->setPaper('letter')->output());
+            $datos += ['adjunto' => $ruta, 'adjunto_nombre' => "Pedido {$pedido->numero}.pdf"];
+        }
+
+        return $this->registrar($vendedor, $datos);
+    }
+
+    public function reintentar(MensajeWhatsapp $m): void
+    {
+        $m->update(['estado' => 'pendiente', 'error' => null]);
+        EnviarWhatsapp::dispatch($m->id)->afterCommit();
+    }
+
+    private function aUsuario(User $de, User $para, string $texto, string $tipo, ?int $pedidoId, array &$resumen): void
+    {
+        if ($para->id === $de->id) {
+            return;
+        }
+        // Sin teléfono no hay WhatsApp; queda la campanita.
+        if (! $para->telefono) {
+            $resumen['sin_telefono'][] = $para->name;
+
+            return;
+        }
+
+        if ($this->whatsapp) {
+            $this->registrar($de, [
+                'destinatario_id' => $para->id,
+                'pedido_id' => $pedidoId,
+                'telefono' => $para->telefono,
+                'tipo' => $tipo,
+                'mensaje' => $texto,
+            ]);
+        }
+        $resumen['enviados'][] = $para->name;
+    }
+
+    private function registrar(User $de, array $datos): MensajeWhatsapp
+    {
+        $m = MensajeWhatsapp::create($datos + ['remitente_id' => $de->id, 'estado' => 'pendiente']);
+        EnviarWhatsapp::dispatch($m->id)->afterCommit();
+
+        return $m;
     }
 
     private function linea(PedidoItem $i): string

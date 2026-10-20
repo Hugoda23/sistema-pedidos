@@ -42,6 +42,7 @@ class DemoSeeder extends Seeder
     {
         $this->pedidos = $pedidos;
         $this->avisos = $avisos;
+        $this->avisos->whatsapp = false; // solo campanita: no llenar la cola de mensajes
         mt_srand(2026); // siempre los mismos datos
 
         $this->call(DatabaseSeeder::class);
@@ -194,7 +195,7 @@ class DemoSeeder extends Seeder
         }
         $lote->update(['estado' => 'cerrado', 'cerrado_por' => $this->proveedor->id, 'cerrado_en' => $cuando]);
         if ($cuando->gte(now()->subDays(4))) {
-            $this->avisos->loteCerrado($lote);
+            $this->avisos->loteCerrado($lote, $this->proveedor);
         }
 
         $this->agendar($cuando->copy()->addDay()->setTime(10, mt_rand(0, 59)), fn () => $this->responder($lote));
@@ -247,7 +248,7 @@ class DemoSeeder extends Seeder
         Pedido::whereIn('id', $items->pluck('pedido_id')->unique())->get()->each->recalcular();
 
         if (now()->gte(today()->subDays(3))) {
-            $this->avisos->proveedorActualizo($items, $estado, $nota);
+            $this->avisos->proveedorActualizo($items, $estado, $this->proveedor, $nota);
         }
     }
 

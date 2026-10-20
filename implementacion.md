@@ -5,8 +5,9 @@
 2. No hay corte fijo de 3 días: el **proveedor cierra el pedido consolidado** cuando acuerdan
    (p. ej. "hay pedido para mañana"). Lo que se agregue después cae en el siguiente.
 3. Solo **precio de venta**, invisible para el proveedor. El cliente deja **anticipo** para hacer su pedido.
-4. Avisos por WhatsApp. Se probó whatsapp-web.js con QR por usuario y se descartó (2026-10-19):
-   el cliente prefirió botones wa.me que abren el WhatsApp de cada uno con el mensaje escrito.
+4. Avisos por WhatsApp con whatsapp-web.js: cada usuario vincula SU número (QR en «Mi WhatsApp») y
+   el mensaje sale solo desde el número de quien actúa. (Hubo un intento intermedio con enlaces wa.me;
+   el cliente pidió volver a las sesiones, 2026-10-19.) Al cliente se le puede adjuntar el PDF del pedido.
 5. Solo entran **Administrador, Vendedores y Proveedor**. El cliente es un registro, sin login.
 
 ## Modelo
@@ -26,7 +27,7 @@
 3. [x] Clientes y productos.
 4. [x] Pedidos de clientes con varias líneas, anticipo y abonos (tabla `pagos`).
 5. [x] Tabla del proveedor (sin cliente ni precio) + estados + cierre de lote.
-6. [x] Fecha aprox. de ingreso → tarea diaria (08:00) + campanita + botones de WhatsApp (wa.me).
+6. [x] Fecha aprox. de ingreso → tarea diaria (08:00) + campanita + WhatsApp por usuario (whatsapp-web.js).
 7. [x] Exportar a Excel (pedidos + líneas; proveedor detalle + sumado, sin cliente ni precio). Historial ya estaba (paso 4).
 8. [x] Panel de inicio por rol, «Mi perfil» (teléfono y contraseña), DemoSeeder con estados variados.
 9. [ ] Despliegue en el VPS de Taller-sis (tras subirlo a KVM 2): compose de producción, dominio, HTTPS.

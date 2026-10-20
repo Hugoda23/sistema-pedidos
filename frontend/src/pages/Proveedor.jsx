@@ -7,7 +7,7 @@ import { fecha, fechaHora } from '../lib/formato'
 import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import { EstadoItem } from '../components/EstadoBadge'
-import BotonWhatsapp from '../components/BotonWhatsapp'
+import { Link } from 'react-router-dom'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Campo, Encabezado, Input, Modal, Select, Textarea } from '../components/ui'
 
@@ -35,7 +35,7 @@ export default function Proveedor() {
   const [marcados, setMarcados] = useState(new Set())
   const [dialogo, setDialogo] = useState(null) // { estado, ids }
   const [aviso, setAviso] = useState({ tipo: 'ok', texto: '' })
-  const [porAvisar, setPorAvisar] = useState([]) // enlaces de WhatsApp a los vendedores
+  const [whatsapp, setWhatsapp] = useState(null) // { enviados, sin_telefono, vinculado }
 
   const cargarLotes = useCallback(() => api('/proveedor/lotes').then(setLotes).catch(() => {}), [])
   useEffect(() => { cargarLotes() }, [cargarLotes])
@@ -56,7 +56,7 @@ export default function Proveedor() {
     try {
       const r = await api('/proveedor/items/estado', { method: 'POST', body: { ids, estado, ...extra } })
       setAviso({ tipo: 'ok', texto: `${r.actualizados} línea(s) actualizada(s).` })
-      setPorAvisar(r.whatsapp)
+      setWhatsapp(r.whatsapp)
       setDialogo(null)
       refrescar()
       return null
@@ -70,7 +70,7 @@ export default function Proveedor() {
     try {
       const r = await api('/proveedor/lotes/cerrar', { method: 'POST' })
       setAviso({ tipo: 'ok', texto: 'Pedido cerrado.' })
-      setPorAvisar(r.whatsapp)
+      setWhatsapp(r.whatsapp)
       refrescar()
     } catch (e) {
       setAviso({ tipo: 'error', texto: e.message })
@@ -171,19 +171,7 @@ export default function Proveedor() {
 
       <Alerta tipo={aviso.tipo}>{aviso.texto}</Alerta>
       <Alerta>{error}</Alerta>
-      {porAvisar.length > 0 && (
-        <div className="my-3 rounded-xl border border-green-200 bg-green-50 p-4">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium text-green-900">Avisa a los vendedores por WhatsApp (se abre con el mensaje escrito, solo presiona enviar):</p>
-            <button onClick={() => setPorAvisar([])} className="text-green-800 hover:text-green-950" aria-label="Cerrar">×</button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {porAvisar.map((w) => w.url
-              ? <BotonWhatsapp key={w.para} url={w.url}>{w.para} ({w.lineas})</BotonWhatsapp>
-              : <span key={w.para} className="rounded-lg bg-white px-3 py-2 text-sm text-amber-800">{w.para} no tiene teléfono registrado</span>)}
-          </div>
-        </div>
-      )}
+      {whatsapp && <ResultadoWhatsapp r={whatsapp} onCerrar={() => setWhatsapp(null)} />}
 
       {vista === 'detalle' ? (
         <>
@@ -203,6 +191,23 @@ export default function Proveedor() {
       )}
 
       {dialogo && <DialogoEstado dialogo={dialogo} onCerrar={() => setDialogo(null)} onEnviar={cambiar} />}
+    </div>
+  )
+}
+
+/** Qué pasó con los avisos por WhatsApp a los vendedores. */
+function ResultadoWhatsapp({ r, onCerrar }) {
+  if (!r.enviados.length && !r.sin_telefono.length) return null
+  const detenido = r.enviados.length > 0 && !r.vinculado
+  return (
+    <div className={`my-3 flex items-start justify-between gap-3 rounded-xl border p-3 text-sm ${detenido ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-green-200 bg-green-50 text-green-900'}`}>
+      <div className="space-y-1">
+        {r.enviados.length > 0 && (detenido
+          ? <p>⚠ Su WhatsApp no está vinculado: el aviso a {r.enviados.join(', ')} quedó detenido. <Link to="/whatsapp" className="font-medium underline">Vincúlelo y reintente</Link>.</p>
+          : <p>💬 Aviso por WhatsApp enviado a: {r.enviados.join(', ')}.</p>)}
+        {r.sin_telefono.length > 0 && <p className="text-amber-800">Sin teléfono registrado (solo campanita): {r.sin_telefono.join(', ')}.</p>}
+      </div>
+      <button onClick={onCerrar} aria-label="Cerrar">×</button>
     </div>
   )
 }

@@ -35,7 +35,10 @@ export default function Inicio() {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
 
+  const [wa, setWa] = useState(null)
+
   useEffect(() => { api('/panel').then(setD).catch((e) => setError(e.message)) }, [])
+  useEffect(() => { api('/whatsapp').then(setWa).catch(() => {}) }, [])
 
   const v = d?.ventas
   const p = d?.proveedor
@@ -51,6 +54,12 @@ export default function Inicio() {
       </div>
 
       <Alerta>{error}</Alerta>
+      {wa && wa.status !== 'conectado' && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <span>⚠ Su WhatsApp no está vinculado: los avisos que usted genere no saldrán por WhatsApp.</span>
+          <Link to="/whatsapp"><Boton>Vincular mi WhatsApp</Boton></Link>
+        </div>
+      )}
       {!d && !error && <p className="text-slate-400">Cargando…</p>}
 
       {v && (

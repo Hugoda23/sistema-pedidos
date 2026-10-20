@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\ProveedorController;
 use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\UsuarioController;
+use App\Http\Controllers\Api\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
@@ -21,6 +22,14 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
 
     Route::get('/notificaciones', [NotificacionController::class, 'index']);
     Route::post('/notificaciones/leer', [NotificacionController::class, 'leer']);
+
+    // Cada usuario vincula su propio WhatsApp; los avisos salen desde ahí.
+    Route::get('/whatsapp', [WhatsAppController::class, 'estado']);
+    Route::post('/whatsapp/conectar', [WhatsAppController::class, 'conectar'])->middleware('throttle:10,1');
+    Route::post('/whatsapp/desconectar', [WhatsAppController::class, 'desconectar']);
+    Route::get('/whatsapp/mensajes', [WhatsAppController::class, 'mensajes']);
+    Route::post('/whatsapp/mensajes/{mensaje}/reintentar', [WhatsAppController::class, 'reintentar']);
+    Route::get('/whatsapp/sesiones', [WhatsAppController::class, 'sesiones'])->middleware('permission:usuarios.ver');
 
     Route::get('/usuarios', [UsuarioController::class, 'index'])->middleware('permission:usuarios.ver');
     Route::get('/usuarios/{usuario}', [UsuarioController::class, 'show'])->middleware('permission:usuarios.ver');
@@ -58,6 +67,8 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
         Route::post('/pedido-items/{item}/estado', [PedidoController::class, 'estadoItem']);
         Route::post('/pedidos/{pedido}/pagos', [PedidoController::class, 'agregarPago']);
         Route::delete('/pagos/{pago}', [PedidoController::class, 'eliminarPago']);
+        Route::post('/pedidos/{pedido}/whatsapp', [WhatsAppController::class, 'alCliente'])->middleware('throttle:20,1');
+        Route::post('/pedido-items/{item}/preguntar', [PedidoController::class, 'preguntarProveedor'])->middleware('throttle:20,1');
         Route::post('/pedidos/{pedido}/anular', [PedidoController::class, 'anular'])->middleware('permission:pedidos.anular');
     });
 

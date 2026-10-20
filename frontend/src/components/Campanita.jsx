@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { fechaHora } from '../lib/formato'
-import BotonWhatsapp from './BotonWhatsapp'
 
 export default function Campanita() {
   const [datos, setDatos] = useState({ sin_leer: 0, items: [] })
@@ -51,16 +50,11 @@ export default function Campanita() {
             {datos.items.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-400">Sin notificaciones.</li>}
             {datos.items.map((n) => (
               <li key={n.id} className={n.leida ? '' : 'bg-blue-50/60'}>
-                <button onClick={() => abrir(n)} className="block w-full px-4 pt-2.5 pb-1 text-left text-sm hover:bg-slate-50">
+                <button onClick={() => abrir(n)} className="block w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50">
                   <div className="font-medium text-slate-800">{n.titulo}</div>
                   <div className="text-slate-600">{n.mensaje}</div>
                   <div className="text-xs text-slate-400">{fechaHora(n.fecha)}</div>
                 </button>
-                {n.whatsapp?.length > 0 && (
-                  <div className="flex flex-wrap gap-2 px-4 pb-2.5">
-                    {n.whatsapp.map((w) => <BotonWhatsapp key={w.url} url={w.url} chico>{w.texto}</BotonWhatsapp>)}
-                  </div>
-                )}
               </li>
             ))}
           </ul>

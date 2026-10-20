@@ -10,7 +10,6 @@ import { buscarProductos } from '../lib/busquedas'
 import { EstadoItem, EstadoPedido } from '../components/EstadoBadge'
 import WhatsappCliente from '../components/WhatsappCliente'
 import VistaPreviaComprobante from '../components/VistaPreviaComprobante'
-import BotonWhatsapp from '../components/BotonWhatsapp'
 import { Alerta, Boton, Campo, Input, Modal, Textarea } from '../components/ui'
 
 export default function PedidoDetalle() {
@@ -48,6 +47,19 @@ export default function PedidoDetalle() {
     accion(`/pedido-items/${item.id}/estado`, { method: 'POST', body: { estado, nota } })
   }
 
+  const [info, setInfo] = useState('')
+  const preguntar = async (item) => {
+    setError('')
+    try {
+      const r = await api(`/pedido-items/${item.id}/preguntar`, { method: 'POST' })
+      if (!r.enviados.length) setError('El proveedor no tiene teléfono registrado.')
+      else if (!r.vinculado) setError('Su WhatsApp no está vinculado: la pregunta quedó detenida. Vincúlelo en «Mi WhatsApp» y reintente desde ahí.')
+      else setInfo(`Se le preguntó por WhatsApp a ${r.enviados.join(', ')} por ${item.codigo}.`)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   const quitar = (item) => confirm(`¿Quitar ${item.codigo} del pedido?`) && accion(`/pedido-items/${item.id}`, { method: 'DELETE' })
 
   if (!p) return <div><Alerta>{error}</Alerta>{!error && <p className="text-slate-500">Cargando…</p>}</div>
@@ -70,6 +82,7 @@ export default function PedidoDetalle() {
       </div>
 
       <Alerta>{error}</Alerta>
+      <Alerta tipo="ok">{info}</Alerta>
       {p.anulado && <Alerta>Anulado el {fechaHora(p.anulado.en)} por {p.anulado.por}: {p.anulado.motivo}</Alerta>}
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -111,7 +124,9 @@ export default function PedidoDetalle() {
                     <EstadoItem estado={it.estado} />
                     {it.fecha_ingreso && <div className="mt-0.5 text-xs text-amber-700">Ingreso aprox. {fecha(it.fecha_ingreso)}</div>}
                     {it.nota_proveedor && <div className="mt-0.5 text-xs text-slate-500">Proveedor: {it.nota_proveedor}</div>}
-                    {it.preguntar_url && <div className="mt-1"><BotonWhatsapp url={it.preguntar_url} chico>Preguntar al proveedor</BotonWhatsapp></div>}
+                    {gestiona && it.estado === 'no_disponible' && (
+                      <button onClick={() => preguntar(it)} className="mt-1 block text-xs font-medium text-green-700 hover:underline">💬 Preguntar al proveedor</button>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-3">

@@ -9,6 +9,7 @@ use App\Models\Pedido;
 use App\Models\PedidoItem;
 use App\Models\Producto;
 use App\Services\Avisos;
+use App\Services\WhatsApp\WhatsAppCliente;
 use App\Support\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as FechaExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -109,7 +110,7 @@ class ProveedorController extends Controller
         return response()->json([
             'id' => $lote->id,
             'lineas' => $lote->items()->count(),
-            'whatsapp' => $avisos->loteCerrado($lote),
+            'whatsapp' => $avisos->loteCerrado($lote, $request->user()) + $this->vinculado($request),
         ]);
     }
 
@@ -155,8 +156,14 @@ class ProveedorController extends Controller
 
         return response()->json([
             'actualizados' => $items->count(),
-            'whatsapp' => $avisos->proveedorActualizo($items, $nuevo, $datos['nota'] ?? null),
+            'whatsapp' => $avisos->proveedorActualizo($items, $nuevo, $request->user(), $datos['nota'] ?? null) + $this->vinculado($request),
         ]);
+    }
+
+    /** Para avisarle en pantalla si sus mensajes van a quedar detenidos. */
+    private function vinculado(Request $request): array
+    {
+        return ['vinculado' => app(WhatsAppCliente::class)->estado($request->user()->id)['status'] === 'conectado'];
     }
 
     private function filtrar(Request $request): Builder

@@ -46,17 +46,20 @@ El encabezado sale de `NEGOCIO_NOMBRE`, `NEGOCIO_TELEFONO`, `NEGOCIO_DIRECCION` 
 
 ## WhatsApp
 
-Sin sesiones ni QR: los avisos son botones verdes que abren el WhatsApp de quien hace clic
-(celular o WhatsApp Web) con el mensaje ya escrito, hacia el teléfono guardado del destinatario;
-solo se presiona enviar. Todo aviso queda además en la campanita.
+Cada usuario vincula **su propio** WhatsApp en «Mi WhatsApp» escaneando un QR (servicio `whatsapp`:
+whatsapp-web.js, una sesión de Chromium por usuario, ~250–500 MB cada una; el contenedor tiene tope
+de 3 GB). Los mensajes **se envían solos** desde el número de quien hace la acción:
 
-| Cuándo | Botón que aparece | Le llega a |
+| Cuándo | Sale del WhatsApp de | Le llega a |
 |---|---|---|
-| El proveedor marca enviado / no disponible / descontinuado | en la tabla del proveedor, uno por vendedor | vendedor |
-| El proveedor cierra el pedido consolidado | en la tabla del proveedor, uno por vendedor | vendedor |
-| Llega la fecha aprox. de ingreso (todos los días 08:00) | en la campanita del vendedor | proveedor |
-| Línea sin existencia | «Preguntar al proveedor» en el pedido | proveedor |
-| «WhatsApp al cliente» en el pedido (plantillas) | en el pedido | cliente |
+| El proveedor marca enviado / no disponible / descontinuado | proveedor | vendedor del pedido (un mensaje por vendedor) |
+| El proveedor cierra el pedido consolidado | proveedor | cada vendedor con líneas en él |
+| Llega la fecha aprox. de ingreso (todos los días 08:00) | vendedor | proveedor(es) |
+| «Preguntar al proveedor» en una línea sin existencia | vendedor | proveedor(es) |
+| «WhatsApp al cliente» en el pedido (plantillas de usted, PDF opcional) | vendedor | cliente |
 
-Los teléfonos de 8 dígitos se envían con el prefijo `WHATSAPP_PAIS` (502).
+Todo aviso queda además en la campanita. Si quien envía no tiene su WhatsApp vinculado, el mensaje
+queda «Falló» en «Mi WhatsApp» y se reintenta desde ahí. Los envíos de un mismo número se espacian
+unos segundos. Cliente no oficial: WhatsApp puede limitar un número que lo use.
+
 Después de cambiar jobs o comandos: `docker compose restart queue scheduler`.

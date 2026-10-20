@@ -75,8 +75,28 @@ services:
     depends_on: [nginx]
     networks: [pedidos]
 
+  # whatsapp-web.js NO es oficial: WhatsApp puede limitar un número que lo use.
+  # Cada usuario vincula el suyo desde «Mi WhatsApp»; cada sesión es un Chromium (~250-500 MB).
+  whatsapp:
+    build:
+      context: .
+      dockerfile: docker/whatsapp/Dockerfile
+    container_name: pedidos_whatsapp
+    restart: unless-stopped
+    environment:
+      WHATSAPP_PORT: 3000
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-dev-cambiame}
+      WHATSAPP_COUNTRY_CODE: ${WHATSAPP_COUNTRY_CODE:-502}
+    volumes:
+      - pedidos_whatsapp:/data
+    shm_size: 512m
+    # Tope para que muchas sesiones abiertas nunca dejen sin memoria al resto del servidor.
+    mem_limit: 3g
+    networks: [pedidos]
+
 volumes:
   pedidos_db:
+  pedidos_whatsapp:
 
 networks:
   pedidos:
