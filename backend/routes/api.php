@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClienteController;
+use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\UsuarioController;
@@ -35,4 +36,18 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
     Route::post('/productos', [ProductoController::class, 'store'])->middleware('permission:productos.gestionar');
     Route::put('/productos/{producto}', [ProductoController::class, 'update'])->middleware('permission:productos.gestionar');
     Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->middleware('permission:productos.gestionar');
+
+    Route::middleware('permission:pedidos.ver')->group(function () {
+        Route::get('/pedidos', [PedidoController::class, 'index']);
+        Route::get('/pedidos/{pedido}', [PedidoController::class, 'show']);
+        Route::post('/pedidos', [PedidoController::class, 'store'])->middleware('permission:pedidos.gestionar');
+        Route::put('/pedidos/{pedido}', [PedidoController::class, 'update']);
+        Route::post('/pedidos/{pedido}/items', [PedidoController::class, 'agregarItem']);
+        Route::put('/pedido-items/{item}', [PedidoController::class, 'actualizarItem']);
+        Route::delete('/pedido-items/{item}', [PedidoController::class, 'eliminarItem']);
+        Route::post('/pedido-items/{item}/estado', [PedidoController::class, 'estadoItem']);
+        Route::post('/pedidos/{pedido}/pagos', [PedidoController::class, 'agregarPago']);
+        Route::delete('/pagos/{pago}', [PedidoController::class, 'eliminarPago']);
+        Route::post('/pedidos/{pedido}/anular', [PedidoController::class, 'anular'])->middleware('permission:pedidos.anular');
+    });
 });

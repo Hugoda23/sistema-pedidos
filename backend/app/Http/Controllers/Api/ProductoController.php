@@ -59,6 +59,9 @@ class ProductoController extends Controller
 
     public function destroy(Producto $producto): JsonResponse
     {
+        if (\App\Models\PedidoItem::where('producto_id', $producto->id)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['producto' => 'El producto aparece en pedidos; márcalo como descontinuado en lugar de eliminarlo.']);
+        }
         $producto->delete();
 
         return response()->json(null, 204);

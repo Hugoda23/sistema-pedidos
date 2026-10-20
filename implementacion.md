@@ -11,7 +11,8 @@
 ## Modelo
 - `clientes`: nombre, teléfono, moto, notas.
 - `productos`: código (único), nombre; se llena solo al pedir.
-- `pedidos` (del cliente): número, cliente, vendedor, anticipo, total, saldo, estado, notas.
+- `pedidos` (del cliente): número, cliente, vendedor, total, pagado, estado, notas, anulación.
+- `pagos`: anticipo (el primero) y abonos; saldo = total − pagado.
 - `pedido_items`: pedido, producto/código, descripción, cantidad, precio venta, estado,
   fecha aprox. de ingreso, lote_id, historial.
 - `lotes` (pedido consolidado al proveedor): número, estado abierto/cerrado, cerrado_por, cerrado_en.
@@ -22,7 +23,7 @@
 1. [x] Docker + Laravel + React + login (Sanctum por token, roles base).
 2. [x] Usuarios, roles y permisos (CRUD; spatie/permission).
 3. [x] Clientes y productos.
-4. [ ] Pedidos de clientes con varias líneas y anticipo.
+4. [x] Pedidos de clientes con varias líneas, anticipo y abonos (tabla `pagos`).
 5. [ ] Tabla del proveedor (sin cliente ni precio) + estados + cierre de lote.
 6. [ ] Fecha aprox. de ingreso → tarea diaria + servicio WhatsApp + campanita.
 7. [ ] Exportar a Excel, historial de cambios.

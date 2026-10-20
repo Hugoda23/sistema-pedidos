@@ -48,6 +48,9 @@ class ClienteController extends Controller
 
     public function destroy(Cliente $cliente): JsonResponse
     {
+        if (\App\Models\Pedido::where('cliente_id', $cliente->id)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['cliente' => 'El cliente tiene pedidos; no se puede eliminar.']);
+        }
         $cliente->delete();
 
         return response()->json(null, 204);
