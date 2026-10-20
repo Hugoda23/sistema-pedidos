@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ClienteController;
+use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
@@ -21,4 +23,16 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
     Route::post('/roles', [RolController::class, 'store'])->middleware('permission:roles.gestionar');
     Route::put('/roles/{rol}', [RolController::class, 'update'])->middleware('permission:roles.gestionar');
     Route::delete('/roles/{rol}', [RolController::class, 'destroy'])->middleware('permission:roles.gestionar');
+
+    Route::get('/clientes', [ClienteController::class, 'index'])->middleware('permission:clientes.ver');
+    Route::get('/clientes/{cliente}', [ClienteController::class, 'show'])->middleware('permission:clientes.ver');
+    Route::post('/clientes', [ClienteController::class, 'store'])->middleware('permission:clientes.gestionar');
+    Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->middleware('permission:clientes.gestionar');
+    Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])->middleware('permission:clientes.gestionar');
+
+    Route::get('/productos', [ProductoController::class, 'index'])->middleware('permission:productos.ver');
+    Route::get('/productos/buscar', [ProductoController::class, 'buscar'])->middleware('permission:productos.ver');
+    Route::post('/productos', [ProductoController::class, 'store'])->middleware('permission:productos.gestionar');
+    Route::put('/productos/{producto}', [ProductoController::class, 'update'])->middleware('permission:productos.gestionar');
+    Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->middleware('permission:productos.gestionar');
 });

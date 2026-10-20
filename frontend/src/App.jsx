@@ -5,6 +5,8 @@ import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Pendiente from './pages/Pendiente'
 import Usuarios from './pages/Usuarios'
+import Clientes from './pages/Clientes'
+import Productos from './pages/Productos'
 import Roles from './pages/Roles'
 
 function Protegida({ permiso, children }) {
@@ -22,8 +24,8 @@ export default function App() {
       <Route element={<Protegida><Layout /></Protegida>}>
         <Route index element={<Inicio />} />
         <Route path="pedidos" element={<Protegida permiso="pedidos.ver"><Pendiente titulo="Pedidos" /></Protegida>} />
-        <Route path="clientes" element={<Protegida permiso="clientes.ver"><Pendiente titulo="Clientes" /></Protegida>} />
-        <Route path="productos" element={<Protegida permiso="productos.ver"><Pendiente titulo="Productos" /></Protegida>} />
+        <Route path="clientes" element={<Protegida permiso="clientes.ver"><Clientes /></Protegida>} />
+        <Route path="productos" element={<Protegida permiso="productos.ver"><Productos /></Protegida>} />
         <Route path="proveedor" element={<Protegida permiso="proveedor.ver"><Pendiente titulo="Repuestos solicitados" /></Protegida>} />
         <Route path="usuarios" element={<Protegida permiso="usuarios.ver"><Usuarios /></Protegida>} />
         <Route path="roles" element={<Protegida permiso="roles.ver"><Roles /></Protegida>} />
