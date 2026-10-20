@@ -7,6 +7,7 @@ import { fecha, fechaHora } from '../lib/formato'
 import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import { EstadoItem } from '../components/EstadoBadge'
+import BotonWhatsapp from '../components/BotonWhatsapp'
 import { Alerta, Boton, Campo, Encabezado, Input, Modal, Select, Textarea } from '../components/ui'
 
 const PESTANAS = [
@@ -33,6 +34,7 @@ export default function Proveedor() {
   const [marcados, setMarcados] = useState(new Set())
   const [dialogo, setDialogo] = useState(null) // { estado, ids }
   const [aviso, setAviso] = useState({ tipo: 'ok', texto: '' })
+  const [porAvisar, setPorAvisar] = useState([]) // enlaces de WhatsApp a los vendedores
 
   const cargarLotes = useCallback(() => api('/proveedor/lotes').then(setLotes).catch(() => {}), [])
   useEffect(() => { cargarLotes() }, [cargarLotes])
@@ -53,6 +55,7 @@ export default function Proveedor() {
     try {
       const r = await api('/proveedor/items/estado', { method: 'POST', body: { ids, estado, ...extra } })
       setAviso({ tipo: 'ok', texto: `${r.actualizados} línea(s) actualizada(s).` })
+      setPorAvisar(r.whatsapp)
       setDialogo(null)
       refrescar()
       return null
@@ -64,8 +67,9 @@ export default function Proveedor() {
   const cerrarLote = async () => {
     if (!confirm(`¿Cerrar el pedido abierto con ${abierto.lineas} línea(s)? Lo que pidan los vendedores después irá al siguiente pedido.`)) return
     try {
-      await api('/proveedor/lotes/cerrar', { method: 'POST' })
+      const r = await api('/proveedor/lotes/cerrar', { method: 'POST' })
       setAviso({ tipo: 'ok', texto: 'Pedido cerrado.' })
+      setPorAvisar(r.whatsapp)
       refrescar()
     } catch (e) {
       setAviso({ tipo: 'error', texto: e.message })
@@ -163,6 +167,19 @@ export default function Proveedor() {
 
       <Alerta tipo={aviso.tipo}>{aviso.texto}</Alerta>
       <Alerta>{error}</Alerta>
+      {porAvisar.length > 0 && (
+        <div className="my-3 rounded-xl border border-green-200 bg-green-50 p-4">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium text-green-900">Avisa a los vendedores por WhatsApp (se abre con el mensaje escrito, solo presiona enviar):</p>
+            <button onClick={() => setPorAvisar([])} className="text-green-800 hover:text-green-950" aria-label="Cerrar">×</button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {porAvisar.map((w) => w.url
+              ? <BotonWhatsapp key={w.para} url={w.url}>{w.para} ({w.lineas})</BotonWhatsapp>
+              : <span key={w.para} className="rounded-lg bg-white px-3 py-2 text-sm text-amber-800">{w.para} no tiene teléfono registrado</span>)}
+          </div>
+        </div>
+      )}
 
       {vista === 'detalle' ? (
         <>

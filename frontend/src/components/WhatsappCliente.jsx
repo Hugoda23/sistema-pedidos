@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { api } from '../lib/api'
+import { useMemo, useState } from 'react'
 import { fecha, moneda } from '../lib/formato'
-import { Alerta, Boton, Campo, Modal, Select, Textarea } from './ui'
+import { enlaceWa } from '../lib/whatsapp'
+import BotonWhatsapp from './BotonWhatsapp'
+import { Alerta, Campo, Modal, Select, Textarea } from './ui'
 
 const lista = (items) => items.map((i) => `• ${i.descripcion} (${i.cantidad})`).join('\n')
 
@@ -24,35 +24,12 @@ function plantillas(p) {
   return t
 }
 
-const enlaceWa = (tel, texto) => {
-  const d = tel.replace(/\D/g, '')
-  return `https://wa.me/${d.length === 8 ? `502${d}` : d}?text=${encodeURIComponent(texto)}`
-}
-
 export default function WhatsappCliente({ pedido, onCerrar }) {
   const opciones = useMemo(() => plantillas(pedido), [pedido])
   const [clave, setClave] = useState(opciones[0][0])
   const [texto, setTexto] = useState(opciones[0][2])
-  const [sesion, setSesion] = useState(null)
-  const [estado, setEstado] = useState({ tipo: 'error', msg: '' })
-  const [enviando, setEnviando] = useState(false)
-
-  useEffect(() => { api('/whatsapp').then(setSesion).catch(() => setSesion({ status: 'sin_servicio' })) }, [])
-
   const elegir = (k) => { setClave(k); setTexto(opciones.find((o) => o[0] === k)[2]) }
-  const vinculado = sesion?.status === 'conectado'
-
-  const enviar = async () => {
-    setEnviando(true)
-    try {
-      await api(`/pedidos/${pedido.id}/whatsapp`, { method: 'POST', body: { mensaje: texto } })
-      setEstado({ tipo: 'ok', msg: 'Mensaje en camino. Puedes ver si salió en «Mi WhatsApp».' })
-    } catch (e) {
-      setEstado({ tipo: 'error', msg: e.errors?.mensaje?.[0] ?? e.message })
-    } finally {
-      setEnviando(false)
-    }
-  }
+  const url = enlaceWa(pedido.cliente.telefono, texto)
 
   return (
     <Modal abierto titulo={`WhatsApp a ${pedido.cliente.nombre}`} onCerrar={onCerrar}>
@@ -67,17 +44,10 @@ export default function WhatsappCliente({ pedido, onCerrar }) {
             </Select>
           </Campo>
           <Campo label="Mensaje"><Textarea rows={7} value={texto} onChange={(e) => setTexto(e.target.value)} /></Campo>
-          <Alerta tipo={estado.tipo}>{estado.msg}</Alerta>
-          {sesion && !vinculado && (
-            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-              Tu WhatsApp no está vinculado. <Link to="/whatsapp" className="underline">Vincúlalo aquí</Link> o abre el mensaje en tu WhatsApp con el botón de abajo.
-            </p>
-          )}
-          <div className="flex flex-wrap justify-end gap-2">
-            <a href={enlaceWa(pedido.cliente.telefono, texto)} target="_blank" rel="noreferrer"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Abrir en WhatsApp</a>
-            {vinculado && estado.tipo !== 'ok' && <Boton onClick={enviar} disabled={enviando || !texto.trim()}>{enviando ? 'Enviando…' : 'Enviar desde el sistema'}</Boton>}
-            {estado.tipo === 'ok' && <Boton onClick={onCerrar}>Listo</Boton>}
+          {!url && <Alerta>El teléfono del cliente no parece válido. Corrígelo en Clientes.</Alerta>}
+          <p className="text-xs text-slate-500">Se abre tu WhatsApp con el mensaje escrito; solo presiona enviar.</p>
+          <div className="flex justify-end">
+            <BotonWhatsapp url={url}>Abrir en WhatsApp</BotonWhatsapp>
           </div>
         </div>
       )}

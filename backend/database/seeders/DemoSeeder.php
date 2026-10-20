@@ -16,6 +16,11 @@ class DemoSeeder extends Seeder
         $v2 = User::firstOrCreate(['email' => 'vendedor2@pedidos.test'], ['name' => 'Vendedor Dos', 'password' => 'password']);
         $v2->syncRoles(['Vendedor']);
 
+        // Teléfonos de ejemplo para ver los botones de WhatsApp.
+        $v1->update(['telefono' => '55550001']);
+        $v2->update(['telefono' => '55550002']);
+        User::where('email', 'proveedor@pedidos.test')->update(['telefono' => '55550009']);
+
         $ejemplos = [
             [$v1, ['Mario Pérez', '41234567', 'Yamaha FZ 2.0 2022'], 100, [
                 ['LOD-XR150', 'Lodera trasera Honda XR150', 2, 185],

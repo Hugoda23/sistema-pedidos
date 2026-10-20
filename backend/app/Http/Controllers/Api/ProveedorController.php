@@ -82,9 +82,12 @@ class ProveedorController extends Controller
         }
 
         $lote->update(['estado' => 'cerrado', 'cerrado_por' => $request->user()->id, 'cerrado_en' => now()]);
-        $avisos->loteCerrado($lote, $request->user());
 
-        return response()->json(['id' => $lote->id, 'lineas' => $lote->items()->count()]);
+        return response()->json([
+            'id' => $lote->id,
+            'lineas' => $lote->items()->count(),
+            'whatsapp' => $avisos->loteCerrado($lote),
+        ]);
     }
 
     /** Cambio de estado de una o varias líneas a la vez. */
@@ -127,9 +130,10 @@ class ProveedorController extends Controller
             return $items;
         });
 
-        $avisos->proveedorActualizo($items, $nuevo, $request->user(), $datos['nota'] ?? null);
-
-        return response()->json(['actualizados' => $items->count()]);
+        return response()->json([
+            'actualizados' => $items->count(),
+            'whatsapp' => $avisos->proveedorActualizo($items, $nuevo, $datos['nota'] ?? null),
+        ]);
     }
 
     private function filtrar(Request $request): Builder

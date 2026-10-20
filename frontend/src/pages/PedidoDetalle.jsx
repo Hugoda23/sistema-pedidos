@@ -9,6 +9,7 @@ import Autocompletar from '../components/Autocompletar'
 import { buscarProductos } from '../lib/busquedas'
 import { EstadoItem, EstadoPedido } from '../components/EstadoBadge'
 import WhatsappCliente from '../components/WhatsappCliente'
+import BotonWhatsapp from '../components/BotonWhatsapp'
 import { Alerta, Boton, Campo, Input, Modal, Textarea } from '../components/ui'
 
 export default function PedidoDetalle() {
@@ -107,6 +108,7 @@ export default function PedidoDetalle() {
                     <EstadoItem estado={it.estado} />
                     {it.fecha_ingreso && <div className="mt-0.5 text-xs text-amber-700">Ingreso aprox. {fecha(it.fecha_ingreso)}</div>}
                     {it.nota_proveedor && <div className="mt-0.5 text-xs text-slate-500">Proveedor: {it.nota_proveedor}</div>}
+                    {it.preguntar_url && <div className="mt-1"><BotonWhatsapp url={it.preguntar_url} chico>Preguntar al proveedor</BotonWhatsapp></div>}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-3">

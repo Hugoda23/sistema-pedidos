@@ -7,7 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Pago;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
+use App\Services\Avisos;
 use App\Services\PedidoService;
+use App\Support\WhatsApp;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -251,6 +254,9 @@ class PedidoController extends Controller
         $pedido->load(['cliente', 'vendedor:id,name', 'anuladoPor:id,name', 'pagos.registradoPor:id,name',
             'items.lote', 'items.historial.user:id,name']);
 
+        $proveedor = User::role('Proveedor')->where('activo', true)->whereNotNull('telefono')->orderBy('id')->first();
+        $avisos = app(Avisos::class);
+
         return [
             'id' => $pedido->id,
             'numero' => $pedido->numero,
@@ -277,6 +283,9 @@ class PedidoController extends Controller
                 'estado' => $i->estado->value,
                 'fecha_ingreso' => $i->fecha_ingreso?->format('Y-m-d'),
                 'nota_proveedor' => $i->nota_proveedor,
+                'preguntar_url' => $proveedor && $i->estado === EstadoItem::NoDisponible
+                    ? WhatsApp::enlace($proveedor->telefono, $avisos->preguntaIngreso(collect([$i->setRelation('pedido', $pedido)])))
+                    : null,
                 'lote' => $i->lote ? ['id' => $i->lote->id, 'estado' => $i->lote->estado] : null,
                 'editable' => $i->editable(),
                 'acciones' => array_map(fn (EstadoItem $e) => $e->value, $i->estado->siguientesVendedor()),
