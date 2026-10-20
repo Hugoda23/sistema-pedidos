@@ -10,6 +10,7 @@ import Pedidos from './pages/Pedidos'
 import NuevoPedido from './pages/NuevoPedido'
 import PedidoDetalle from './pages/PedidoDetalle'
 import Proveedor from './pages/Proveedor'
+import MiWhatsapp from './pages/MiWhatsapp'
 import Roles from './pages/Roles'
 
 function Protegida({ permiso, children }) {
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="productos" element={<Protegida permiso="productos.ver"><Productos /></Protegida>} />
         <Route path="proveedor" element={<Protegida permiso="proveedor.ver"><Proveedor /></Protegida>} />
         <Route path="usuarios" element={<Protegida permiso="usuarios.ver"><Usuarios /></Protegida>} />
+        <Route path="whatsapp" element={<MiWhatsapp />} />
         <Route path="roles" element={<Protegida permiso="roles.ver"><Roles /></Protegida>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

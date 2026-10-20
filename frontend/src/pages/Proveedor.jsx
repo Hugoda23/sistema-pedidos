@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { primerError } from '../lib/errores'
@@ -22,7 +23,9 @@ const hoy = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
 export default function Proveedor() {
   const { puede } = useAuth()
   const actualiza = puede('proveedor.actualizar')
-  const [filtros, setFiltros] = useState({ estado: 'por_atender', q: '', lote_id: '', por_pagina: 50 })
+  const [params] = useSearchParams()
+  const [filtros, setFiltros] = useState({ estado: params.get('estado') ?? 'por_atender', q: '', lote_id: '', por_pagina: 50 })
+  useEffect(() => { if (params.get('estado')) setFiltros((f) => ({ ...f, estado: params.get('estado') })) }, [params])
   const [vista, setVista] = useState('detalle')
   const { filas, pagina, cargando, error, setPage, recargar } = useListado('/proveedor/items', filtros)
   const [consolidado, setConsolidado] = useState([])

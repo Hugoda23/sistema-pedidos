@@ -8,6 +8,7 @@ import { fecha, fechaHora, moneda } from '../lib/formato'
 import Autocompletar from '../components/Autocompletar'
 import { buscarProductos } from '../lib/busquedas'
 import { EstadoItem, EstadoPedido } from '../components/EstadoBadge'
+import WhatsappCliente from '../components/WhatsappCliente'
 import { Alerta, Boton, Campo, Input, Modal, Textarea } from '../components/ui'
 
 export default function PedidoDetalle() {
@@ -17,6 +18,7 @@ export default function PedidoDetalle() {
   const [error, setError] = useState('')
   const [historial, setHistorial] = useState(null)
   const [anular, setAnular] = useState(false)
+  const [wa, setWa] = useState(false)
   const gestiona = puede('pedidos.gestionar')
 
   const cargar = useCallback(() => api(`/pedidos/${id}`).then(setP).catch((e) => setError(e.status === 404 ? 'Pedido no encontrado.' : e.message)), [id])
@@ -57,7 +59,10 @@ export default function PedidoDetalle() {
           <h1 className="flex items-center gap-3 text-2xl font-bold text-slate-800">{p.numero} <EstadoPedido estado={p.estado} /></h1>
           <p className="text-sm text-slate-500">{fechaHora(p.fecha)} · Vendedor: {p.vendedor.name}</p>
         </div>
-        {puede('pedidos.anular') && !p.anulado && <Boton variante="peligro" onClick={() => setAnular(true)}>Anular pedido</Boton>}
+        <div className="flex flex-wrap gap-2">
+          {gestiona && !p.anulado && <Boton variante="secundario" onClick={() => setWa(true)}>💬 WhatsApp al cliente</Boton>}
+          {puede('pedidos.anular') && !p.anulado && <Boton variante="peligro" onClick={() => setAnular(true)}>Anular pedido</Boton>}
+        </div>
       </div>
 
       <Alerta>{error}</Alerta>
@@ -134,6 +139,7 @@ export default function PedidoDetalle() {
         </Modal>
       )}
 
+      {wa && <WhatsappCliente pedido={p} onCerrar={() => setWa(false)} />}
       {anular && <AnularPedido p={p} onCerrar={() => setAnular(false)} onListo={(nuevo) => { setP(nuevo); setAnular(false) }} />}
     </div>
   )

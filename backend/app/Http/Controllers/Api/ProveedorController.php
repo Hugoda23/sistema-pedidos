@@ -8,6 +8,7 @@ use App\Models\Lote;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
 use App\Models\Producto;
+use App\Services\Avisos;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,7 +73,7 @@ class ProveedorController extends Controller
     }
 
     /** El proveedor cierra el pedido consolidado: lo nuevo cae en el siguiente. */
-    public function cerrarLote(Request $request): JsonResponse
+    public function cerrarLote(Request $request, Avisos $avisos): JsonResponse
     {
         $lote = Lote::where('estado', 'abierto')->first();
 
@@ -81,12 +82,13 @@ class ProveedorController extends Controller
         }
 
         $lote->update(['estado' => 'cerrado', 'cerrado_por' => $request->user()->id, 'cerrado_en' => now()]);
+        $avisos->loteCerrado($lote, $request->user());
 
         return response()->json(['id' => $lote->id, 'lineas' => $lote->items()->count()]);
     }
 
     /** Cambio de estado de una o varias líneas a la vez. */
-    public function cambiarEstado(Request $request): JsonResponse
+    public function cambiarEstado(Request $request, Avisos $avisos): JsonResponse
     {
         $datos = $request->validate([
             'ids' => ['required', 'array', 'min:1', 'max:500'],
@@ -100,7 +102,7 @@ class ProveedorController extends Controller
         ]);
         $nuevo = EstadoItem::from($datos['estado']);
 
-        $actualizados = DB::transaction(function () use ($datos, $nuevo, $request) {
+        $items = DB::transaction(function () use ($datos, $nuevo, $request) {
             $items = PedidoItem::whereIn('id', $datos['ids'])->lockForUpdate()->get();
             if ($items->count() !== count(array_unique($datos['ids']))) {
                 throw ValidationException::withMessages(['ids' => 'Alguna línea ya no existe; recarga la tabla.']);
@@ -122,10 +124,12 @@ class ProveedorController extends Controller
 
             Pedido::whereIn('id', $items->pluck('pedido_id')->unique())->get()->each->recalcular();
 
-            return $items->count();
+            return $items;
         });
 
-        return response()->json(['actualizados' => $actualizados]);
+        $avisos->proveedorActualizo($items, $nuevo, $request->user(), $datos['nota'] ?? null);
+
+        return response()->json(['actualizados' => $items->count()]);
     }
 
     private function filtrar(Request $request): Builder

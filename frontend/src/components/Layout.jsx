@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import Campanita from './Campanita'
 
 // Cada opción aparece solo si el usuario tiene el permiso.
 const MENU = [
@@ -11,6 +12,7 @@ const MENU = [
   { to: '/proveedor', label: 'Repuestos solicitados', permiso: 'proveedor.ver' },
   { to: '/usuarios', label: 'Usuarios', permiso: 'usuarios.ver' },
   { to: '/roles', label: 'Roles y permisos', permiso: 'roles.ver' },
+  { to: '/whatsapp', label: 'Mi WhatsApp', permiso: null },
 ]
 
 export default function Layout() {
@@ -39,7 +41,8 @@ export default function Layout() {
         <header className="flex items-center justify-between border-b bg-white px-4 py-3">
           <button className="rounded p-1 md:hidden" onClick={() => setAbierto(true)} aria-label="Menú">☰</button>
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="text-slate-600">{user.name} · <span className="text-slate-400">{user.roles.join(', ')}</span></span>
+            <Campanita />
+            <span className="hidden text-slate-600 sm:inline">{user.name} · <span className="text-slate-400">{user.roles.join(', ')}</span></span>
             <button onClick={logout} className="rounded-lg border px-3 py-1 hover:bg-slate-50">Salir</button>
           </div>
         </header>

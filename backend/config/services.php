@@ -18,6 +18,11 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    'whatsapp' => [
+        'url' => env('WHATSAPP_URL', 'http://pedidos_whatsapp:3000'),
+        'token' => env('WHATSAPP_TOKEN'),
+    ],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],
