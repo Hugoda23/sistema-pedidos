@@ -18,8 +18,10 @@ use Spatie\Permission\Models\Role;
 
 /**
  * Simula ~6 semanas de trabajo para probar todos los apartados:
- * los vendedores toman pedidos, el proveedor cierra cada 3 días y responde al día siguiente,
- * los vendedores reciben, entregan y cobran.
+ *  - Pedidos de clientes: los vendedores toman pedidos; el proveedor responde cada 3 días
+ *    (enviado / sin existencia / descontinuado); los vendedores reciben, entregan y cobran.
+ *  - Pedido de inventario: los vendedores agregan lo que falta (a veces el mismo código: se suma),
+ *    corrigen o quitan; el proveedor cierra un «Inventario #N» cada 5 días y responde al día siguiente.
  *
  *   php artisan migrate:fresh --seed --seeder=DemoSeeder
  */
@@ -69,10 +71,20 @@ class DemoSeeder extends Seeder
                 $hora = $dia->copy()->setTime(mt_rand(8, 17), mt_rand(0, 59));
                 $this->agendar($hora, fn () => $this->nuevoPedido($vendedores->random(), $clientes->random(), $hora));
             }
-            // Cada 3 días el proveedor cierra el pedido consolidado y responde al día siguiente.
-            if ((int) $inicio->diffInDays($dia) % 3 === 2) {
+            $n = (int) $inicio->diffInDays($dia);
+            // Cada 3 días el proveedor responde lo pendiente de clientes.
+            if ($n % 3 === 1) {
+                $this->agendar($dia->copy()->setTime(10, mt_rand(0, 59)), fn () => $this->responderClientes());
+            }
+            // Inventario: casi todos los días alguien anota lo que falta.
+            for ($k = 0, $m = $dia->isSaturday() ? 0 : mt_rand(0, 2); $k < $m; $k++) {
+                $hora = $dia->copy()->setTime(mt_rand(8, 17), mt_rand(0, 59));
+                $this->agendar($hora, fn () => $this->agregarInventario($vendedores->random()));
+            }
+            // Cada 5 días el proveedor cierra el pedido de inventario y responde al día siguiente.
+            if ($n % 5 === 4) {
                 $cierre = $dia->copy()->setTime(17, 30);
-                $this->agendar($cierre, fn () => $this->cerrarLote($cierre));
+                $this->agendar($cierre, fn () => $this->cerrarInventario($cierre));
             }
         }
 
@@ -192,26 +204,12 @@ class DemoSeeder extends Seeder
         ], $vendedor);
     }
 
-    private function cerrarLote(Carbon $cuando): void
-    {
-        $lote = Lote::abiertoDe(Lote::CLIENTES);
-        if (! $lote || ! $lote->items()->exists()) {
-            return;
-        }
-        $lote->update(['estado' => 'cerrado', 'cerrado_por' => $this->proveedor->id, 'cerrado_en' => $cuando]);
-        if ($cuando->gte(now()->subDays(4))) {
-            $this->avisos->loteCerrado($lote, $this->proveedor);
-        }
-
-        $this->agendar($cuando->copy()->addDay()->setTime(10, mt_rand(0, 59)), fn () => $this->responder($lote));
-    }
-
     /** El proveedor responde línea por línea: la mayoría sale, algunas no hay, pocas descontinuadas. */
-    private function responder(Lote $lote): void
+    private function responderClientes(): void
     {
         $grupos = ['enviado' => [], 'no_disponible' => [], 'descontinuado' => []];
-        // Lo de este pedido y lo que haya quedado sin responder de pedidos anteriores.
-        $pendientes = PedidoItem::where('estado', 'pendiente')->whereHas('lote', fn ($q) => $q->where('estado', 'cerrado'))->get();
+        // Lo que se pidió hasta ayer (lo de hoy lo verá en la próxima respuesta).
+        $pendientes = PedidoItem::where('estado', 'pendiente')->where('created_at', '<', today())->get();
         foreach ($pendientes as $item) {
             $r = mt_rand(1, 100);
             $grupos[match (true) { $r <= 74 => 'enviado', $r <= 90 => 'no_disponible', $r <= 94 => 'descontinuado', default => 'nada' }][] = $item;
@@ -285,6 +283,103 @@ class DemoSeeder extends Seeder
         }
     }
 
+    /** Un vendedor anota un repuesto que falta. Si ya está en la lista abierta, le suma. */
+    private function agregarInventario(User $vendedor, ?array $repuesto = null): void
+    {
+        $disponibles = array_values(array_filter($this->repuestos, fn ($r) => ! in_array($r[0], $this->descontinuados, true)));
+        // A veces otro vendedor anota algo que ya está en la lista abierta (y el sistema le suma).
+        $yaAnotado = mt_rand(1, 100) <= 25
+            ? InventarioItem::where('estado', 'pendiente')->whereHas('lote', fn ($q) => $q->where('estado', 'abierto'))->inRandomOrder(mt_rand())->first()
+            : null;
+        [$codigo, $nombre] = $repuesto ?? ($yaAnotado ? [$yaAnotado->codigo, $yaAnotado->descripcion] : $disponibles[array_rand($disponibles)]);
+        $cantidad = [1, 2, 2, 3, 4, 5, 6, 10, 12][mt_rand(0, 8)];
+
+        $existente = InventarioItem::activos()->where('codigo', $codigo)->with('lote')->latest('id')->first();
+        if ($existente && $existente->editable()) {
+            $existente->increment('cantidad', $cantidad);
+            $existente->registrar($vendedor, 'sumado', $cantidad);
+
+            return;
+        }
+
+        $item = InventarioItem::create([
+            'codigo' => $codigo, 'descripcion' => $nombre, 'cantidad' => $cantidad, 'estado' => EstadoItem::Pendiente,
+            'lote_id' => Lote::actual(Lote::INVENTARIO)->id, 'creado_por' => $vendedor->id,
+        ]);
+        $item->registrar($vendedor, 'agregado', $cantidad, $existente ? "Adicional a lo ya pedido (#{$existente->id})" : null);
+
+        // De vez en cuando alguien corrige o quita algo del pedido abierto.
+        $r = mt_rand(1, 100);
+        $editable = InventarioItem::where('estado', 'pendiente')->whereHas('lote', fn ($q) => $q->where('estado', 'abierto'))->inRandomOrder(mt_rand())->first();
+        if ($editable && $r <= 12) {
+            $nueva = max(1, $editable->cantidad + [-1, 1, 2, 4][mt_rand(0, 3)]);
+            if ($nueva !== $editable->cantidad) {
+                $nota = "Cantidad {$editable->cantidad} → {$nueva}";
+                $editable->update(['cantidad' => $nueva]);
+                $editable->registrar($editable->creador, 'editado', $nueva, $nota);
+            }
+        } elseif ($editable && $r <= 17 && $editable->id !== $item->id) {
+            $editable->update(['estado' => EstadoItem::Anulado]);
+            $editable->registrar($editable->creador, 'quitado', $editable->cantidad);
+        }
+    }
+
+    private function cerrarInventario(Carbon $cuando): void
+    {
+        $lote = Lote::abiertoDe(Lote::INVENTARIO);
+        if (! $lote || ! $lote->inventario()->activos()->exists()) {
+            return;
+        }
+        $lote->update(['estado' => 'cerrado', 'cerrado_por' => $this->proveedor->id, 'cerrado_en' => $cuando]);
+        if ($cuando->gte(now()->subDays(4))) {
+            $this->avisos->inventarioCerrado($lote, $this->proveedor);
+        }
+
+        $this->agendar($cuando->copy()->addDay()->setTime(10, mt_rand(30, 59)), fn () => $this->responderInventario($lote));
+    }
+
+    /** El proveedor atiende el inventario del pedido cerrado: casi todo sale; algo no hay; poco se descontinúa. */
+    private function responderInventario(Lote $lote): void
+    {
+        $grupos = ['enviado' => [], 'no_disponible' => [], 'descontinuado' => []];
+        foreach ($lote->inventario()->where('estado', 'pendiente')->get() as $item) {
+            $r = mt_rand(1, 100);
+            $grupos[$r <= 76 ? 'enviado' : ($r <= 94 ? 'no_disponible' : 'descontinuado')][] = $item;
+        }
+
+        $this->marcarInventario(collect($grupos['enviado']), EstadoItem::Enviado);
+        foreach ($grupos['no_disponible'] as $item) {
+            $fecha = today()->addDays(mt_rand(3, 12));
+            $this->marcarInventario(collect([$item]), EstadoItem::NoDisponible, $fecha->toDateString(),
+                ['Llega la próxima semana', 'Agotado en bodega', 'Pedido a fábrica'][mt_rand(0, 2)]);
+            if (mt_rand(1, 10) <= 7) {
+                $this->agendar($fecha->copy()->setTime(10, 15), fn () => $item->fresh()->estado === EstadoItem::NoDisponible
+                    ? $this->marcarInventario(collect([$item->fresh()]), EstadoItem::Enviado) : null);
+            }
+        }
+        $this->marcarInventario(collect($grupos['descontinuado']), EstadoItem::Descontinuado, null, 'Ya no se fabrica');
+    }
+
+    private function marcarInventario(Collection $items, EstadoItem $estado, ?string $fecha = null, ?string $nota = null): void
+    {
+        if ($items->isEmpty()) {
+            return;
+        }
+        foreach ($items as $item) {
+            $item->update([
+                'estado' => $estado,
+                'fecha_ingreso' => $estado === EstadoItem::NoDisponible ? $fecha : null,
+                'nota_proveedor' => $nota ?? $item->nota_proveedor,
+                'atendido_por' => $this->proveedor->id,
+                'atendido_en' => now(),
+            ]);
+            $item->registrar($this->proveedor, $estado->value, null, $nota);
+        }
+        if (now()->gte(today()->subDays(3))) {
+            $this->avisos->inventarioActualizado($items, $estado, $this->proveedor, $nota);
+        }
+    }
+
     private function casosEspeciales(Collection $vendedores): void
     {
         $admin = User::where('email', 'admin@pedidos.test')->first();
@@ -302,33 +397,28 @@ class DemoSeeder extends Seeder
             $item->pedido->recalcular();
         }
 
-        // Pedido de inventario: lo que falta en la tienda.
-        $lote = Lote::actual(Lote::INVENTARIO);
-        $prov = $this->proveedor;
-        $inventario = [
-            [0, 'ACE-20W50-1L', 'Aceite 20W-50 4T (1 litro)', 24, null],
-            [1, 'BUJ-CR7HSA', 'Bujía NGK CR7HSA', 10, null],
-            [2, 'CAM-275-18', 'Cámara de llanta 2.75-18', 6, null],
-            [0, 'PF-FZ-D', 'Pastillas de freno delanteras Yamaha FZ', 4, 'no_disponible'],
-            [1, 'FIL-ACE-XR150', 'Filtro de aceite Honda XR150', 12, 'enviado'],
-        ];
-        foreach ($inventario as [$v, $codigo, $nombre, $cantidad, $estado]) {
-            $item = InventarioItem::create(['codigo' => $codigo, 'descripcion' => $nombre, 'cantidad' => $cantidad,
-                'estado' => EstadoItem::Pendiente, 'lote_id' => $lote->id, 'creado_por' => $vendedores[$v]->id]);
-            $item->registrar($vendedores[$v], 'agregado', $cantidad);
-            if ($estado) {
-                $item->update(['estado' => $estado, 'atendido_por' => $prov->id, 'atendido_en' => now(),
-                    'fecha_ingreso' => $estado === 'no_disponible' ? today()->addDays(5) : null,
-                    'nota_proveedor' => $estado === 'no_disponible' ? 'Llegan la próxima semana' : null]);
-                $item->registrar($prov, $estado);
-            }
+        // Inventario de hoy en el pedido abierto: agregar, sumar (otro vendedor), corregir y quitar.
+        foreach ([0, 1, 2, 0] as $v) {
+            $this->agregarInventario($vendedores[$v]);
         }
-        // Un segundo vendedor sumó al aceite.
-        $aceite = InventarioItem::where('codigo', 'ACE-20W50-1L')->first();
-        $aceite->increment('cantidad', 12);
-        $aceite->registrar($vendedores[2], 'sumado', 12);
+        $primero = InventarioItem::activos()->whereHas('lote', fn ($q) => $q->where('estado', 'abierto'))->orderBy('id')->first();
+        if ($primero) {
+            $this->agregarInventario($vendedores[2], [$primero->codigo, $primero->descripcion]);
+        }
+        // Siempre hay al menos una corrección y un quitado en el pedido abierto (para el reporte).
+        $abiertas = InventarioItem::where('estado', 'pendiente')->whereHas('lote', fn ($q) => $q->where('estado', 'abierto'))->orderBy('id')->get();
+        if ($abiertas->count() >= 3) {
+            $editar = $abiertas[1];
+            $nota = "Cantidad {$editar->cantidad} → ".($editar->cantidad + 2);
+            $editar->update(['cantidad' => $editar->cantidad + 2]);
+            $editar->registrar($editar->creador, 'editado', $editar->cantidad, $nota);
 
-        // Pedidos de hoy en el pedido abierto, para que el proveedor tenga qué atender.
+            $quitar = $abiertas->last();
+            $quitar->update(['estado' => EstadoItem::Anulado]);
+            $quitar->registrar($quitar->creador, 'quitado', $quitar->cantidad);
+        }
+
+        // Pedidos de hoy, para que el proveedor tenga qué atender.
         $clientes = Cliente::orderBy('id')->get();
         foreach ([[0, 2], [1, 5]] as [$v, $c]) {
             $this->nuevoPedido($vendedores[$v], $clientes[$c], now());

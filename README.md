@@ -17,8 +17,10 @@ docker compose exec app php artisan migrate --seed
 docker compose exec app php artisan migrate:fresh --seed --seeder=DemoSeeder
 ```
 
-Simula 6 semanas de trabajo (≈60 pedidos, pagos, pedidos al proveedor cerrados cada 3 días,
-sin existencia, descontinuados, notificaciones). Todos con contraseña `password`:
+Simula 6 semanas de trabajo: ≈67 pedidos de clientes en todos los estados con pagos (el proveedor
+responde cada 3 días), y el pedido de inventario con 6 «Inventario #N» cerrados (cada 5 días) y uno
+abierto, con movimientos de agregado, sumado, editado, quitado, enviado, sin existencia y
+descontinuado; más notificaciones. Todos con contraseña `password`:
 
 | Usuario | Rol | Para probar |
 |---|---|---|
