@@ -9,7 +9,7 @@ import { EstadoItem } from '../components/EstadoBadge'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
-import { DocumentTextIcon, ListBulletIcon, LockClosedIcon, Squares2X2Icon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, ListBulletIcon, Squares2X2Icon } from '@heroicons/react/24/outline'
 import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 
 const PESTANAS = [
@@ -49,19 +49,6 @@ export default function Proveedor() {
 
   const refrescar = () => { recargar(); cargarLotes() }
 
-  /** Cierra solo el pedido de clientes; el de inventario se cierra en su pantalla. */
-  const cerrarLote = async () => {
-    if (!confirm(`¿Cerrar el pedido #${abierto.numero} con ${abierto.lineas} línea(s) de clientes? Lo que pidan los vendedores después irá al siguiente pedido.`)) return
-    try {
-      const r = await api('/proveedor/lotes/cerrar', { method: 'POST' })
-      setAviso({ tipo: 'ok', texto: `Pedido #${r.numero} cerrado.` })
-      setWhatsapp(r.whatsapp)
-      refrescar()
-      setReporte({ id: r.id, numero: r.numero }) // muestra el PDF del pedido recién cerrado
-    } catch (e) {
-      setAviso({ tipo: 'error', texto: e.message })
-    }
-  }
 
   const cambiar = async (estado, ids, extra = {}) => {
     setAviso({ texto: '' })
@@ -138,7 +125,6 @@ export default function Proveedor() {
           </div>
           <div className="flex gap-2">
             <Boton variante="secundario" onClick={() => { setFiltros({ ...filtros, lote_id: String(abierto.id), estado: 'todos' }); setVista('consolidado') }}>Total por código</Boton>
-            {puede('proveedor.cerrar_lote') && abierto.lineas > 0 && <Boton icono={LockClosedIcon} onClick={cerrarLote}>Cerrar pedido #{abierto.numero}</Boton>}
           </div>
         </div>
       )}
