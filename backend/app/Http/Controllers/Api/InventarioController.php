@@ -204,6 +204,7 @@ class InventarioController extends Controller
                 'inventario as repuestos' => fn ($q) => $q->where('estado', '!=', 'anulado'),
                 'inventario as enviados' => fn ($q) => $q->where('estado', 'enviado'),
                 'inventario as pendientes' => fn ($q) => $q->whereIn('estado', InventarioItem::ACTIVOS),
+                'items as lineas_clientes' => fn ($q) => $q->where('estado', '!=', 'anulado'),
             ])
             ->withSum(['inventario as unidades' => fn ($q) => $q->where('estado', '!=', 'anulado')], 'cantidad')
             ->orderByRaw("CASE WHEN estado = 'abierto' THEN 0 ELSE 1 END")
@@ -221,6 +222,7 @@ class InventarioController extends Controller
             'unidades' => (int) $l->unidades,
             'enviados' => $l->enviados,
             'pendientes' => $l->pendientes,
+            'lineas_clientes' => $l->lineas_clientes,
         ]));
     }
 

@@ -169,6 +169,7 @@ class InventarioTest extends TestCase
         $this->agregar($this->ana, 'FIL-1', 2)->assertCreated();
 
         $this->actingAs($this->proveedor)->getJson('/api/proveedor/lotes')->assertJsonPath('0.inventario', 1)->assertJsonPath('0.lineas', 0);
+        $this->getJson('/api/inventario/pedidos')->assertJsonPath('0.repuestos', 1)->assertJsonPath('0.lineas_clientes', 0);
         $this->postJson('/api/proveedor/lotes/cerrar')->assertOk();
     }
 

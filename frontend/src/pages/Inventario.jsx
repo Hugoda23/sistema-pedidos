@@ -10,7 +10,7 @@ import { EstadoItem } from '../components/EstadoBadge'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
 import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 import { Alerta, Boton, Campo, Encabezado, Input, Modal } from '../components/ui'
-import { DocumentTextIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, ExclamationTriangleIcon, LockClosedIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 const PESTANAS = [
   ['activos', 'Pendientes'],
@@ -25,6 +25,7 @@ export default function Inventario() {
   const { puede } = useAuth()
   const gestiona = puede('inventario.gestionar')
   const atiende = puede('inventario.atender')
+  const cierra = puede('proveedor.cerrar_lote')
   const [filtros, setFiltros] = useState({ estado: 'activos', q: '', por_pagina: 50 })
   const { filas, pagina, cargando, error, setPage, recargar } = useListado('/inventario', filtros)
   const [nuevo, setNuevo] = useState(VACIO)
@@ -83,6 +84,22 @@ export default function Inventario() {
     }
   }
 
+  /** El proveedor cierra el pedido consolidado: lo que se agregue después cae en el siguiente. */
+  const cerrarPedido = async () => {
+    const cli = abierto.lineas_clientes ? ` y ${abierto.lineas_clientes} línea(s) de pedidos de clientes` : ''
+    if (!confirm(`¿Cerrar el pedido #${abierto.id} con ${abierto.repuestos} repuesto(s) de inventario${cli}? Lo que se agregue después irá al siguiente pedido.`)) return
+    setAviso({ texto: '' })
+    try {
+      const r = await api('/proveedor/lotes/cerrar', { method: 'POST' })
+      setAviso({ tipo: 'ok', texto: `Pedido #${r.id} cerrado.` })
+      setWhatsapp(r.whatsapp)
+      recargar()
+      cargarPedidos()
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: e.message })
+    }
+  }
+
   const alternar = (id) => setMarcados((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const seleccionables = filas.filter((f) => f.acciones.length)
   const todos = seleccionables.length > 0 && seleccionables.every((f) => marcados.has(f.id))
@@ -95,7 +112,7 @@ export default function Inventario() {
       cell: ({ row }) => row.original.acciones.length > 0 && <input type="checkbox" aria-label="Marcar" checked={marcados.has(row.original.id)} onChange={() => alternar(row.original.id)} />,
     }] : []),
     { header: 'Código', accessorKey: 'codigo', cell: (c) => <span className="font-mono font-medium">{c.getValue()}</span> },
-    { header: 'Descripción', accessorKey: 'descripcion', cell: (c) => <div className="min-w-40 max-w-xs whitespace-normal">{c.getValue()}</div> },
+    { header: 'Descripción', accessorKey: 'descripcion', cell: (c) => <div className="min-w-32 max-w-xs whitespace-normal">{c.getValue()}</div> },
     { header: 'Cant.', accessorKey: 'cantidad', cell: (c) => <span className="font-semibold">{c.getValue()}</span> },
     {
       header: 'Agregado por', id: 'aportes',
@@ -107,7 +124,7 @@ export default function Inventario() {
       cell: ({ row: { original: f } }) => (
         <div>
           <EstadoItem estado={f.estado} />
-          {f.lote && <span className="ml-1 text-xs text-slate-500">Pedido #{f.lote.id}{f.lote.abierto ? ' (abierto)' : ''}</span>}
+          {f.lote && <div className="text-xs text-slate-500">Pedido #{f.lote.id}{f.lote.abierto ? ' (abierto)' : ''}</div>}
           {f.fecha_ingreso && (
             <div className={`text-xs ${f.revisar_ingreso ? 'font-semibold text-red-600' : 'text-amber-700'}`}>
               {f.revisar_ingreso && <ExclamationTriangleIcon className="mr-0.5 inline h-3.5 w-3.5 align-[-2px]" />}
@@ -144,6 +161,9 @@ export default function Inventario() {
             : <span className="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-600">Sin pedido abierto</span>}
         </span>
       }>
+        {cierra && abierto && abierto.repuestos + abierto.lineas_clientes > 0 && (
+          <Boton icono={LockClosedIcon} onClick={cerrarPedido}>Cerrar pedido #{abierto.id}</Boton>
+        )}
         <BotonExcel ruta="/inventario/exportar" params={{ estado: filtros.estado, q: filtros.q }} nombre="inventario.xlsx"
           onError={(m) => setAviso({ tipo: 'error', texto: m })} />
       </Encabezado>

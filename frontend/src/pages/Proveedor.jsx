@@ -62,18 +62,6 @@ export default function Proveedor() {
     }
   }
 
-  const cerrarLote = async () => {
-    const inv = abierto.inventario ? ` y ${abierto.inventario} de inventario` : ''
-    if (!confirm(`¿Cerrar el pedido abierto con ${abierto.lineas} línea(s) de clientes${inv}? Lo que pidan los vendedores después irá al siguiente pedido.`)) return
-    try {
-      const r = await api('/proveedor/lotes/cerrar', { method: 'POST' })
-      setAviso({ tipo: 'ok', texto: 'Pedido cerrado.' })
-      setWhatsapp(r.whatsapp)
-      refrescar()
-    } catch (e) {
-      setAviso({ tipo: 'error', texto: e.message })
-    }
-  }
 
   const alternar = (id) => setMarcados((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const seleccionables = filas.filter((f) => f.acciones.length)
@@ -136,7 +124,7 @@ export default function Proveedor() {
           </div>
           <div className="flex gap-2">
             <Boton variante="secundario" onClick={() => { setFiltros({ ...filtros, lote_id: String(abierto.id), estado: 'todos' }); setVista('consolidado') }}>Ver consolidado</Boton>
-            {puede('proveedor.cerrar_lote') && abierto.lineas + abierto.inventario > 0 && <Boton onClick={cerrarLote}>Cerrar pedido</Boton>}
+
           </div>
         </div>
       )}
