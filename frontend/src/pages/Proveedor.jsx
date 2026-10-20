@@ -1,0 +1,225 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { primerError } from '../lib/errores'
+import { fecha, fechaHora } from '../lib/formato'
+import { useListado } from '../lib/useListado'
+import DataTable from '../components/DataTable'
+import { EstadoItem } from '../components/EstadoBadge'
+import { Alerta, Boton, Campo, Encabezado, Input, Modal, Select, Textarea } from '../components/ui'
+
+const PESTANAS = [
+  ['por_atender', 'Por atender'],
+  ['revisar', 'Revisar ingreso'],
+  ['no_disponible', 'No disponibles'],
+  ['enviado', 'Enviados'],
+  ['descontinuado', 'Descontinuados'],
+  ['todos', 'Todos'],
+]
+
+const hoy = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+
+export default function Proveedor() {
+  const { puede } = useAuth()
+  const actualiza = puede('proveedor.actualizar')
+  const [filtros, setFiltros] = useState({ estado: 'por_atender', q: '', lote_id: '', por_pagina: 50 })
+  const [vista, setVista] = useState('detalle')
+  const { filas, pagina, cargando, error, setPage, recargar } = useListado('/proveedor/items', filtros)
+  const [consolidado, setConsolidado] = useState([])
+  const [lotes, setLotes] = useState([])
+  const [marcados, setMarcados] = useState(new Set())
+  const [dialogo, setDialogo] = useState(null) // { estado, ids }
+  const [aviso, setAviso] = useState({ tipo: 'ok', texto: '' })
+
+  const cargarLotes = useCallback(() => api('/proveedor/lotes').then(setLotes).catch(() => {}), [])
+  useEffect(() => { cargarLotes() }, [cargarLotes])
+  useEffect(() => setMarcados(new Set()), [filas])
+  useEffect(() => {
+    if (vista !== 'consolidado') return
+    const { estado, q, lote_id } = filtros
+    api('/proveedor/consolidado', { params: { estado, q, lote_id } }).then(setConsolidado).catch(() => {})
+  }, [vista, filtros])
+
+  const abierto = lotes.find((l) => l.estado === 'abierto')
+  const set = (k) => (e) => setFiltros({ ...filtros, [k]: e.target.value })
+
+  const refrescar = () => { recargar(); cargarLotes() }
+
+  const cambiar = async (estado, ids, extra = {}) => {
+    setAviso({ texto: '' })
+    try {
+      const r = await api('/proveedor/items/estado', { method: 'POST', body: { ids, estado, ...extra } })
+      setAviso({ tipo: 'ok', texto: `${r.actualizados} línea(s) actualizada(s).` })
+      setDialogo(null)
+      refrescar()
+      return null
+    } catch (e) {
+      return e
+    }
+  }
+
+  const cerrarLote = async () => {
+    if (!confirm(`¿Cerrar el pedido abierto con ${abierto.lineas} línea(s)? Lo que pidan los vendedores después irá al siguiente pedido.`)) return
+    try {
+      await api('/proveedor/lotes/cerrar', { method: 'POST' })
+      setAviso({ tipo: 'ok', texto: 'Pedido cerrado.' })
+      refrescar()
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: e.message })
+    }
+  }
+
+  const alternar = (id) => setMarcados((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const seleccionables = filas.filter((f) => f.acciones.length)
+  const todos = seleccionables.length > 0 && seleccionables.every((f) => marcados.has(f.id))
+
+  const columnas = useMemo(() => [
+    ...(actualiza ? [{
+      id: 'sel',
+      header: () => <input type="checkbox" aria-label="Marcar todas" checked={todos} onChange={() => setMarcados(todos ? new Set() : new Set(seleccionables.map((f) => f.id)))} />,
+      cell: ({ row }) => row.original.acciones.length > 0 && <input type="checkbox" aria-label="Marcar" checked={marcados.has(row.original.id)} onChange={() => alternar(row.original.id)} />,
+    }] : []),
+    { header: 'Código', accessorKey: 'codigo', cell: (c) => <span className="font-mono font-medium">{c.getValue()}</span> },
+    { header: 'Descripción', accessorKey: 'descripcion', cell: (c) => <div className="min-w-40 max-w-xs whitespace-normal">{c.getValue()}</div> },
+    { header: 'Cant.', accessorKey: 'cantidad', cell: (c) => <span className="font-semibold">{c.getValue()}</span> },
+    { header: 'Vendedor', accessorKey: 'vendedor' },
+    { header: 'Solicitado', accessorKey: 'solicitado', cell: (c) => <span title={fechaHora(c.getValue())}>{fecha(c.getValue())}</span> },
+    {
+      header: 'Estado', accessorKey: 'estado',
+      cell: ({ row: { original: f } }) => (
+        <div>
+          <EstadoItem estado={f.estado} />
+          {f.fecha_ingreso && <div className={`text-xs ${f.revisar_ingreso ? 'font-semibold text-red-600' : 'text-amber-700'}`}>{f.revisar_ingreso ? '¿Ya ingresó? ' : 'Ingreso aprox. '}{fecha(f.fecha_ingreso)}</div>}
+          {f.nota_proveedor && <div className="max-w-56 truncate text-xs text-slate-500" title={f.nota_proveedor}>{f.nota_proveedor}</div>}
+        </div>
+      ),
+    },
+    ...(actualiza ? [{
+      id: 'acciones', header: '',
+      cell: ({ row: { original: f } }) => (
+        <div className="flex flex-col items-start gap-0.5 text-sm">
+          {f.acciones.includes('enviado') && <button className="text-blue-600 hover:underline" onClick={() => cambiar('enviado', [f.id])}>Enviado</button>}
+          {f.acciones.includes('no_disponible') && <button className="text-amber-700 hover:underline" onClick={() => setDialogo({ estado: 'no_disponible', ids: [f.id], fila: f })}>{f.estado === 'no_disponible' ? 'Nueva fecha' : 'No disponible'}</button>}
+          {f.acciones.includes('descontinuado') && <button className="text-red-600 hover:underline" onClick={() => setDialogo({ estado: 'descontinuado', ids: [f.id], fila: f })}>Descontinuado</button>}
+        </div>
+      ),
+    }] : []),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [actualiza, marcados, todos, filas])
+
+  const columnasConsolidado = useMemo(() => [
+    { header: 'Código', accessorKey: 'codigo', cell: (c) => <span className="font-mono font-medium">{c.getValue()}</span> },
+    { header: 'Descripción', accessorKey: 'descripcion' },
+    { header: 'Total unidades', accessorKey: 'cantidad', cell: (c) => <span className="font-semibold">{c.getValue()}</span> },
+    { header: 'Líneas', accessorKey: 'lineas' },
+  ], [])
+
+  return (
+    <div>
+      <Encabezado titulo="Repuestos solicitados" />
+
+      {abierto && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <div className="text-sm">
+            <div className="font-semibold text-blue-900">Pedido abierto #{abierto.id}</div>
+            <div className="text-blue-800">Desde {fechaHora(abierto.abierto_en)} · {abierto.lineas} línea(s) · {abierto.unidades} unidad(es) · {abierto.por_atender} por atender</div>
+          </div>
+          <div className="flex gap-2">
+            <Boton variante="secundario" onClick={() => { setFiltros({ ...filtros, lote_id: String(abierto.id), estado: 'todos' }); setVista('consolidado') }}>Ver consolidado</Boton>
+            {puede('proveedor.cerrar_lote') && abierto.lineas > 0 && <Boton onClick={cerrarLote}>Cerrar pedido</Boton>}
+          </div>
+        </div>
+      )}
+
+      {lotes.length > 0 && !abierto && (
+        <p className="mb-4 rounded-xl border bg-white p-4 text-sm text-slate-600">No hay pedido abierto. Lo próximo que soliciten los vendedores abrirá uno nuevo.</p>
+      )}
+
+      <div className="mb-3 flex flex-wrap gap-1 border-b">
+        {PESTANAS.map(([k, t]) => (
+          <button key={k} onClick={() => setFiltros({ ...filtros, estado: k })}
+            className={`-mb-px border-b-2 px-3 py-2 text-sm ${filtros.estado === k ? 'border-blue-600 font-medium text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-3 grid gap-2 sm:grid-cols-4">
+        <Input className="sm:col-span-2" placeholder="Buscar código o descripción" value={filtros.q} onChange={set('q')} />
+        <Select value={filtros.lote_id} onChange={set('lote_id')}>
+          <option value="">Todos los pedidos</option>
+          {lotes.map((l) => (
+            <option key={l.id} value={l.id}>#{l.id} · {l.estado === 'abierto' ? 'abierto' : `cerrado ${fecha(l.cerrado_en)}`} · {l.lineas} líneas</option>
+          ))}
+        </Select>
+        <Select value={vista} onChange={(e) => setVista(e.target.value)}>
+          <option value="detalle">Ver por línea</option>
+          <option value="consolidado">Ver sumado por código</option>
+        </Select>
+      </div>
+
+      <Alerta tipo={aviso.tipo}>{aviso.texto}</Alerta>
+      <Alerta>{error}</Alerta>
+
+      {vista === 'detalle' ? (
+        <>
+          {actualiza && marcados.size > 0 && (
+            <div className="sticky top-0 z-10 mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-slate-800 p-2 text-sm text-white">
+              <span className="px-2">{marcados.size} seleccionada(s)</span>
+              <Boton onClick={() => cambiar('enviado', [...marcados])}>Marcar enviado</Boton>
+              <Boton variante="secundario" onClick={() => setDialogo({ estado: 'no_disponible', ids: [...marcados] })}>No disponible…</Boton>
+              <Boton variante="peligro" onClick={() => setDialogo({ estado: 'descontinuado', ids: [...marcados] })}>Descontinuado…</Boton>
+            </div>
+          )}
+          <DataTable columnas={columnas} datos={filas} pagina={pagina} onPagina={setPage} cargando={cargando}
+            vacio="No hay repuestos en esta vista." claseFila={(f) => (f.revisar_ingreso ? 'bg-red-50' : '')} />
+        </>
+      ) : (
+        <DataTable columnas={columnasConsolidado} datos={consolidado} vacio="No hay repuestos en esta vista." />
+      )}
+
+      {dialogo && <DialogoEstado dialogo={dialogo} onCerrar={() => setDialogo(null)} onEnviar={cambiar} />}
+    </div>
+  )
+}
+
+function DialogoEstado({ dialogo, onCerrar, onEnviar }) {
+  const [fechaIngreso, setFechaIngreso] = useState(dialogo.fila?.fecha_ingreso ?? '')
+  const [nota, setNota] = useState('')
+  const [errores, setErrores] = useState({})
+  const [msg, setMsg] = useState('')
+  const noDisp = dialogo.estado === 'no_disponible'
+  const cuantos = dialogo.ids.length
+
+  const enviar = async (e) => {
+    e.preventDefault()
+    const err = await onEnviar(dialogo.estado, dialogo.ids, noDisp ? { fecha_ingreso: fechaIngreso, nota } : { nota })
+    if (err) { setErrores(primerError(err.errors)); setMsg(err.message) }
+  }
+
+  const titulo = dialogo.fila ? `${dialogo.fila.codigo} · ${dialogo.fila.descripcion}` : `${cuantos} línea(s)`
+
+  return (
+    <Modal abierto titulo={noDisp ? 'No disponible' : 'Producto descontinuado'} onCerrar={onCerrar}>
+      <form onSubmit={enviar} className="space-y-3">
+        <p className="text-sm text-slate-600">{titulo}</p>
+        {!Object.keys(errores).length && <Alerta>{msg}</Alerta>}
+        {noDisp ? (
+          <Campo label="Fecha aproximada de ingreso" error={errores.fecha_ingreso}>
+            <Input type="date" required min={hoy()} value={fechaIngreso} onChange={(e) => setFechaIngreso(e.target.value)} />
+          </Campo>
+        ) : (
+          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">El producto quedará marcado como descontinuado y los vendedores ya no podrán pedirlo.</p>
+        )}
+        {errores.ids && <Alerta>{errores.ids}</Alerta>}
+        <Campo label="Nota para el vendedor (opcional)" error={errores.nota}>
+          <Textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder={noDisp ? 'Ej.: viene en el próximo contenedor' : 'Ej.: ya no se trabaja, sugerir alternativa'} />
+        </Campo>
+        <div className="flex justify-end gap-2">
+          <Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante={noDisp ? 'primario' : 'peligro'}>Guardar</Boton>
+        </div>
+      </form>
+    </Modal>
+  )
+}

@@ -24,7 +24,7 @@
 2. [x] Usuarios, roles y permisos (CRUD; spatie/permission).
 3. [x] Clientes y productos.
 4. [x] Pedidos de clientes con varias líneas, anticipo y abonos (tabla `pagos`).
-5. [ ] Tabla del proveedor (sin cliente ni precio) + estados + cierre de lote.
+5. [x] Tabla del proveedor (sin cliente ni precio) + estados + cierre de lote.
 6. [ ] Fecha aprox. de ingreso → tarea diaria + servicio WhatsApp + campanita.
 7. [ ] Exportar a Excel, historial de cambios.
 8. [ ] Panel de inicio, datos de demostración, pulido.

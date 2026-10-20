@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\ProductoController;
+use App\Http\Controllers\Api\ProveedorController;
 use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
@@ -49,5 +50,13 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
         Route::post('/pedidos/{pedido}/pagos', [PedidoController::class, 'agregarPago']);
         Route::delete('/pagos/{pago}', [PedidoController::class, 'eliminarPago']);
         Route::post('/pedidos/{pedido}/anular', [PedidoController::class, 'anular'])->middleware('permission:pedidos.anular');
+    });
+
+    Route::middleware('permission:proveedor.ver')->prefix('proveedor')->group(function () {
+        Route::get('/items', [ProveedorController::class, 'items']);
+        Route::get('/consolidado', [ProveedorController::class, 'consolidado']);
+        Route::get('/lotes', [ProveedorController::class, 'lotes']);
+        Route::post('/items/estado', [ProveedorController::class, 'cambiarEstado'])->middleware('permission:proveedor.actualizar');
+        Route::post('/lotes/cerrar', [ProveedorController::class, 'cerrarLote'])->middleware('permission:proveedor.cerrar_lote');
     });
 });

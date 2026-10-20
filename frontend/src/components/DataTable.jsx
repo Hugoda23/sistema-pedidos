@@ -4,8 +4,8 @@ import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-tabl
  * Tabla con paginación del servidor (respuesta paginate() de Laravel).
  * `pagina` = { current_page, last_page, total, from, to }.
  */
-export default function DataTable({ columnas, datos, pagina, onPagina, cargando, vacio = 'No hay registros.' }) {
-  const tabla = useReactTable({ data: datos ?? [], columns: columnas, getCoreRowModel: getCoreRowModel() })
+export default function DataTable({ columnas, datos, pagina, onPagina, cargando, vacio = 'No hay registros.', claseFila }) {
+  const tabla = useReactTable({ data: datos ?? [], columns: columnas, getCoreRowModel: getCoreRowModel(), getRowId: (f, i) => String(f.id ?? f.codigo ?? i) })
 
   return (
     <div className="overflow-hidden rounded-xl border bg-white">
@@ -24,7 +24,7 @@ export default function DataTable({ columnas, datos, pagina, onPagina, cargando,
           </thead>
           <tbody className={`divide-y ${cargando ? 'opacity-50' : ''}`}>
             {tabla.getRowModel().rows.map((fila) => (
-              <tr key={fila.id} className="hover:bg-slate-50">
+              <tr key={fila.id} className={`hover:bg-slate-50 ${claseFila?.(fila.original) ?? ''}`}>
                 {fila.getVisibleCells().map((c) => (
                   <td key={c.id} className="whitespace-nowrap px-4 py-2.5 text-slate-700">
                     {flexRender(c.column.columnDef.cell, c.getContext())}

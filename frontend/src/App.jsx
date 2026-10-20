@@ -3,13 +3,13 @@ import { useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
-import Pendiente from './pages/Pendiente'
 import Usuarios from './pages/Usuarios'
 import Clientes from './pages/Clientes'
 import Productos from './pages/Productos'
 import Pedidos from './pages/Pedidos'
 import NuevoPedido from './pages/NuevoPedido'
 import PedidoDetalle from './pages/PedidoDetalle'
+import Proveedor from './pages/Proveedor'
 import Roles from './pages/Roles'
 
 function Protegida({ permiso, children }) {
@@ -31,7 +31,7 @@ export default function App() {
         <Route path="pedidos/:id" element={<Protegida permiso="pedidos.ver"><PedidoDetalle /></Protegida>} />
         <Route path="clientes" element={<Protegida permiso="clientes.ver"><Clientes /></Protegida>} />
         <Route path="productos" element={<Protegida permiso="productos.ver"><Productos /></Protegida>} />
-        <Route path="proveedor" element={<Protegida permiso="proveedor.ver"><Pendiente titulo="Repuestos solicitados" /></Protegida>} />
+        <Route path="proveedor" element={<Protegida permiso="proveedor.ver"><Proveedor /></Protegida>} />
         <Route path="usuarios" element={<Protegida permiso="usuarios.ver"><Usuarios /></Protegida>} />
         <Route path="roles" element={<Protegida permiso="roles.ver"><Roles /></Protegida>} />
       </Route>
