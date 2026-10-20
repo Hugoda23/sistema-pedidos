@@ -10,6 +10,9 @@ use App\Models\PedidoItem;
 use App\Services\Avisos;
 use App\Services\PedidoService;
 use App\Support\WhatsApp;
+use App\Support\Excel;
+use PhpOffice\PhpSpreadsheet\Shared\Date as FechaExcel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,22 +26,9 @@ class PedidoController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $q = trim((string) $request->query('q'));
-
-        $pedidos = Pedido::query()
-            ->visiblesPara($user)
+        $pedidos = $this->consulta($request)
             ->with(['cliente:id,nombre,telefono', 'vendedor:id,name'])
             ->withCount('items')
-            ->when($q !== '', fn ($w) => $w->where(fn ($w) => $w
-                ->whereRaw('numero ILIKE ?', ["%{$q}%"])
-                ->orWhereHas('cliente', fn ($c) => $c->whereRaw('nombre ILIKE ?', ["%{$q}%"]))
-                ->orWhereHas('items', fn ($i) => $i->where('codigo', 'like', '%'.mb_strtoupper($q).'%'))))
-            ->when($request->query('estado'), fn ($w, $e) => $w->where('estado', $e))
-            ->when($request->query('vendedor_id'), fn ($w, $v) => $w->where('vendedor_id', $v))
-            ->when($request->query('desde'), fn ($w, $d) => $w->whereDate('created_at', '>=', $d))
-            ->when($request->query('hasta'), fn ($w, $h) => $w->whereDate('created_at', '<=', $h))
-            ->when($request->boolean('con_saldo'), fn ($w) => $w->whereColumn('total', '>', 'pagado')->where('estado', '!=', 'anulado'))
             ->orderByDesc('id')
             ->paginate(min((int) $request->query('por_pagina', 15), 100));
 
@@ -54,6 +44,50 @@ class PedidoController extends Controller
             'saldo' => $p->saldo(),
             'estado' => $p->estado,
         ]));
+    }
+
+    /** Pedidos con los mismos filtros de la pantalla: una hoja de pedidos y otra con sus líneas. */
+    public function exportar(Request $request): StreamedResponse
+    {
+        $pedidos = $this->consulta($request)
+            ->with(['cliente:id,nombre,telefono', 'vendedor:id,name', 'items'])
+            ->orderByDesc('id')
+            ->limit(5000)
+            ->get();
+
+        $f = fn ($d) => $d ? FechaExcel::PHPToExcel($d) : null;
+
+        return (new Excel)
+            ->hoja('Pedidos', ['Número', 'Fecha', 'Cliente', 'Teléfono', 'Vendedor', 'Líneas', 'Total', 'Pagado', 'Saldo', 'Estado', 'Notas'],
+                $pedidos->map(fn (Pedido $p) => [
+                    $p->numero, $f($p->created_at), $p->cliente->nombre, $p->cliente->telefono, $p->vendedor->name,
+                    $p->items->count(), (float) $p->total, (float) $p->pagado, (float) $p->saldo(),
+                    Pedido::ESTADOS[$p->estado] ?? $p->estado, $p->notas,
+                ]), [1 => Excel::FECHA, 6 => Excel::QUETZALES, 7 => Excel::QUETZALES, 8 => Excel::QUETZALES])
+            ->hoja('Líneas', ['Pedido', 'Cliente', 'Código', 'Descripción', 'Cantidad', 'Precio', 'Subtotal', 'Estado', 'Ingreso aprox.', 'Nota del proveedor'],
+                $pedidos->flatMap(fn (Pedido $p) => $p->items->map(fn (PedidoItem $i) => [
+                    $p->numero, $p->cliente->nombre, $i->codigo, $i->descripcion, $i->cantidad, (float) $i->precio,
+                    $i->cantidad * (float) $i->precio, $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
+                ])), [5 => Excel::QUETZALES, 6 => Excel::QUETZALES, 8 => Excel::FECHA])
+            ->descargar('pedidos-'.now()->format('Y-m-d').'.xlsx');
+    }
+
+    /** Filtros compartidos por el listado y la exportación. */
+    private function consulta(Request $request): \Illuminate\Database\Eloquent\Builder
+    {
+        $q = trim((string) $request->query('q'));
+
+        return Pedido::query()
+            ->visiblesPara($request->user())
+            ->when($q !== '', fn ($w) => $w->where(fn ($w) => $w
+                ->whereRaw('numero ILIKE ?', ["%{$q}%"])
+                ->orWhereHas('cliente', fn ($c) => $c->whereRaw('nombre ILIKE ?', ["%{$q}%"]))
+                ->orWhereHas('items', fn ($i) => $i->where('codigo', 'like', '%'.mb_strtoupper($q).'%'))))
+            ->when($request->query('estado'), fn ($w, $e) => $w->where('estado', $e))
+            ->when($request->query('vendedor_id'), fn ($w, $v) => $w->where('vendedor_id', $v))
+            ->when($request->query('desde'), fn ($w, $d) => $w->whereDate('created_at', '>=', $d))
+            ->when($request->query('hasta'), fn ($w, $h) => $w->whereDate('created_at', '<=', $h))
+            ->when($request->boolean('con_saldo'), fn ($w) => $w->whereColumn('total', '>', 'pagado')->where('estado', '!=', 'anulado'));
     }
 
     public function store(Request $request): JsonResponse

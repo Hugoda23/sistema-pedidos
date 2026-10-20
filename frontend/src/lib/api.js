@@ -37,3 +37,18 @@ export async function api(ruta, { method = 'GET', body, params } = {}) {
   if (!res.ok) throw new ApiError(res.status, data)
   return data
 }
+
+/** Descarga un archivo (p. ej. Excel) de la API con el token de la sesión. */
+export async function descargar(ruta, params, nombre) {
+  const url = new URL(`/api${ruta}`, window.location.origin)
+  Object.entries(params ?? {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v) })
+
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token.get()}` } })
+  if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null))
+
+  const enlace = document.createElement('a')
+  enlace.href = URL.createObjectURL(await res.blob())
+  enlace.download = res.headers.get('content-disposition')?.match(/filename="?([^"]+)"?/)?.[1] ?? nombre
+  enlace.click()
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000)
+}

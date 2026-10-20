@@ -44,6 +44,7 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
 
     Route::middleware('permission:pedidos.ver')->group(function () {
         Route::get('/pedidos', [PedidoController::class, 'index']);
+        Route::get('/pedidos/exportar', [PedidoController::class, 'exportar']);
         Route::get('/pedidos/{pedido}', [PedidoController::class, 'show']);
         Route::post('/pedidos', [PedidoController::class, 'store'])->middleware('permission:pedidos.gestionar');
         Route::put('/pedidos/{pedido}', [PedidoController::class, 'update']);
@@ -59,6 +60,7 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
     Route::middleware('permission:proveedor.ver')->prefix('proveedor')->group(function () {
         Route::get('/items', [ProveedorController::class, 'items']);
         Route::get('/consolidado', [ProveedorController::class, 'consolidado']);
+        Route::get('/exportar', [ProveedorController::class, 'exportar']);
         Route::get('/lotes', [ProveedorController::class, 'lotes']);
         Route::post('/items/estado', [ProveedorController::class, 'cambiarEstado'])->middleware('permission:proveedor.actualizar');
         Route::post('/lotes/cerrar', [ProveedorController::class, 'cerrarLote'])->middleware('permission:proveedor.cerrar_lote');

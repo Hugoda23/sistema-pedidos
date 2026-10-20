@@ -27,5 +27,5 @@
 4. [x] Pedidos de clientes con varias líneas, anticipo y abonos (tabla `pagos`).
 5. [x] Tabla del proveedor (sin cliente ni precio) + estados + cierre de lote.
 6. [x] Fecha aprox. de ingreso → tarea diaria (08:00) + campanita + botones de WhatsApp (wa.me).
-7. [ ] Exportar a Excel, historial de cambios.
+7. [x] Exportar a Excel (pedidos + líneas; proveedor detalle + sumado, sin cliente ni precio). Historial ya estaba (paso 4).
 8. [ ] Panel de inicio, datos de demostración, pulido.

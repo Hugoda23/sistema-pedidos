@@ -7,6 +7,7 @@ import { fecha, moneda } from '../lib/formato'
 import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import { EstadoPedido } from '../components/EstadoBadge'
+import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
 
 export default function Pedidos() {
@@ -15,6 +16,7 @@ export default function Pedidos() {
   const verTodos = puede('pedidos.ver_todos')
   const [filtros, setFiltros] = useState({ q: '', estado: '', vendedor_id: '', desde: '', hasta: '', con_saldo: '' })
   const { filas, pagina, cargando, error, setPage } = useListado('/pedidos', filtros)
+  const [errorExcel, setErrorExcel] = useState('')
   const [vendedores, setVendedores] = useState([])
   const set = (k) => (e) => setFiltros({ ...filtros, [k]: e.target.type === 'checkbox' ? (e.target.checked ? 1 : '') : e.target.value })
 
@@ -38,6 +40,7 @@ export default function Pedidos() {
   return (
     <div>
       <Encabezado titulo="Pedidos">
+        <BotonExcel ruta="/pedidos/exportar" params={filtros} nombre="pedidos.xlsx" onError={setErrorExcel} />
         {puede('pedidos.gestionar') && <Boton onClick={() => navegar('/pedidos/nuevo')}>Nuevo pedido</Boton>}
       </Encabezado>
 
@@ -60,7 +63,7 @@ export default function Pedidos() {
         <input type="checkbox" checked={!!filtros.con_saldo} onChange={set('con_saldo')} /> Solo con saldo pendiente
       </label>
 
-      <Alerta>{error}</Alerta>
+      <Alerta>{error || errorExcel}</Alerta>
       <DataTable columnas={columnas} datos={filas} pagina={pagina} onPagina={setPage} cargando={cargando} vacio="No hay pedidos." />
     </div>
   )

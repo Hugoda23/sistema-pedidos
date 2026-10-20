@@ -8,6 +8,7 @@ import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import { EstadoItem } from '../components/EstadoBadge'
 import BotonWhatsapp from '../components/BotonWhatsapp'
+import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Campo, Encabezado, Input, Modal, Select, Textarea } from '../components/ui'
 
 const PESTANAS = [
@@ -123,7 +124,10 @@ export default function Proveedor() {
 
   return (
     <div>
-      <Encabezado titulo="Repuestos solicitados" />
+      <Encabezado titulo="Repuestos solicitados">
+        <BotonExcel ruta="/proveedor/exportar" params={{ estado: filtros.estado, q: filtros.q, lote_id: filtros.lote_id }} nombre="repuestos.xlsx"
+          onError={(m) => setAviso({ tipo: 'error', texto: m })} />
+      </Encabezado>
 
       {abierto && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">

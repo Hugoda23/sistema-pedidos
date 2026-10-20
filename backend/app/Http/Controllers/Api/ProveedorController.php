@@ -9,6 +9,9 @@ use App\Models\Pedido;
 use App\Models\PedidoItem;
 use App\Models\Producto;
 use App\Services\Avisos;
+use App\Support\Excel;
+use PhpOffice\PhpSpreadsheet\Shared\Date as FechaExcel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +47,26 @@ class ProveedorController extends Controller
             ->get();
 
         return response()->json($filas);
+    }
+
+    /** Lo mismo que se ve en pantalla, en Excel: detalle y suma por código. Sin clientes ni precios. */
+    public function exportar(Request $request): StreamedResponse
+    {
+        $items = $this->filtrar($request)->with(['pedido:id,numero,vendedor_id', 'pedido.vendedor:id,name'])->orderBy('id')->get();
+        $consolidado = $this->filtrar($request)
+            ->selectRaw('codigo, MIN(descripcion) AS descripcion, SUM(cantidad) AS cantidad, COUNT(*) AS lineas')
+            ->groupBy('codigo')->orderBy('codigo')->get();
+
+        return (new Excel)
+            ->hoja('Repuestos', ['Código', 'Descripción', 'Cantidad', 'Vendedor', 'Pedido', 'Pedido al proveedor', 'Solicitado', 'Estado', 'Ingreso aprox.', 'Nota'],
+                $items->map(fn (PedidoItem $i) => [
+                    $i->codigo, $i->descripcion, $i->cantidad, $i->pedido->vendedor->name, $i->pedido->numero,
+                    $i->lote_id ? "#{$i->lote_id}" : '', FechaExcel::PHPToExcel($i->created_at), $i->estado->etiqueta(),
+                    $i->fecha_ingreso ? FechaExcel::PHPToExcel($i->fecha_ingreso) : null, $i->nota_proveedor,
+                ]), [6 => Excel::FECHA_HORA, 8 => Excel::FECHA])
+            ->hoja('Sumado por código', ['Código', 'Descripción', 'Unidades', 'Líneas'],
+                $consolidado->map(fn ($f) => [$f->codigo, $f->descripcion, (int) $f->cantidad, (int) $f->lineas]))
+            ->descargar('repuestos-'.now()->format('Y-m-d').'.xlsx');
     }
 
     public function lotes(): JsonResponse
