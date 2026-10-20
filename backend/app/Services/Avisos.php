@@ -8,6 +8,7 @@ use App\Models\PedidoItem;
 use App\Models\User;
 use App\Notifications\Aviso;
 use App\Support\WhatsApp;
+use Illuminate\Database\Eloquent\Collection as Modelos;
 use Illuminate\Support\Collection;
 
 /**
@@ -24,7 +25,7 @@ class Avisos
      */
     public function proveedorActualizo(Collection $items, EstadoItem $estado, ?string $nota): array
     {
-        $items->load('pedido.vendedor');
+        $items = Modelos::make($items->all())->load('pedido.vendedor');
         $enlaces = [];
 
         foreach ($items->groupBy(fn (PedidoItem $i) => $i->pedido->vendedor_id) as $lineas) {

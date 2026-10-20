@@ -11,8 +11,26 @@ docker compose exec app php artisan migrate --seed
 - API: http://localhost:8120/api
 - Postgres: localhost:5445 (pedidos / secret)
 
-Usuarios de prueba (contraseña `password`): `admin@pedidos.test`, `vendedor@pedidos.test`, `proveedor@pedidos.test`.
-Pedidos de ejemplo: `docker compose exec app php artisan db:seed --class=DemoSeeder` (agrega `vendedor2@pedidos.test`, teléfonos y pedidos en distintos estados).
+### Datos de demostración
+
+```bash
+docker compose exec app php artisan migrate:fresh --seed --seeder=DemoSeeder
+```
+
+Simula 6 semanas de trabajo (≈60 pedidos, pagos, pedidos al proveedor cerrados cada 3 días,
+sin existencia, descontinuados, notificaciones). Todos con contraseña `password`:
+
+| Usuario | Rol | Para probar |
+|---|---|---|
+| `admin@pedidos.test` | Administrador | todo: usuarios, roles, anular pedidos, ve ventas y proveedor |
+| `vendedor@pedidos.test` (Carlos Méndez) | Vendedor | sus pedidos, clientes, productos |
+| `maria@pedidos.test` | Vendedor | ídem |
+| `jose@pedidos.test` | Vendedor | sin teléfono: el proveedor no puede avisarle por WhatsApp |
+| `proveedor@pedidos.test` | Proveedor | repuestos solicitados, cerrar pedido, Excel |
+| `supervisor@pedidos.test` | Supervisor (rol creado) | ve pedidos de todos y la tabla del proveedor, sin modificar |
+| `luis@pedidos.test` | Vendedor inactivo | no puede entrar |
+
+Sin datos de ejemplo (solo admin, vendedor y proveedor): `php artisan migrate:fresh --seed`.
 
 Pruebas (usan la base `pedidos_testing`, no tocan la de desarrollo):
 
