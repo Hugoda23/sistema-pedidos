@@ -38,6 +38,14 @@ Pruebas (usan la base `pedidos_testing`, no tocan la de desarrollo):
 docker compose exec app php artisan test
 ```
 
+## Pedido de inventario
+
+Lista compartida de repuestos que faltan en la tienda (código, descripción, cantidad). La ven todos
+los vendedores y el proveedor. Si se agrega un código que ya está en la lista, el sistema avisa y
+pregunta si se suma la cantidad (si el proveedor ya cerró ese pedido, va como línea nueva en el
+siguiente). Va en el mismo pedido consolidado que los pedidos de clientes: «Cerrar pedido» cierra
+ambos. Lo que el proveedor marca enviado o descontinuado sale de la lista (pestaña «Enviados»).
+
 ## Comprobante del pedido
 
 En el pedido, «Imprimir / PDF» abre una vista previa (misma plantilla que el PDF:

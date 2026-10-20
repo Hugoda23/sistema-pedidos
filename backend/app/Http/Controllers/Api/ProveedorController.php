@@ -76,6 +76,8 @@ class ProveedorController extends Controller
             ->withCount([
                 'items',
                 'items as por_atender' => fn ($q) => $q->whereIn('estado', self::POR_ATENDER),
+                'inventario',
+                'inventario as inventario_por_atender' => fn ($q) => $q->whereIn('estado', self::POR_ATENDER),
             ])
             ->withSum('items as unidades', 'cantidad')
             ->orderByRaw("CASE WHEN estado = 'abierto' THEN 0 ELSE 1 END")
@@ -92,6 +94,8 @@ class ProveedorController extends Controller
             'lineas' => $l->items_count,
             'unidades' => (int) $l->unidades,
             'por_atender' => $l->por_atender,
+            'inventario' => $l->inventario_count,
+            'inventario_por_atender' => $l->inventario_por_atender,
         ]));
     }
 
@@ -100,7 +104,7 @@ class ProveedorController extends Controller
     {
         $lote = Lote::where('estado', 'abierto')->first();
 
-        if (! $lote || ! $lote->items()->exists()) {
+        if (! $lote || (! $lote->items()->exists() && ! $lote->inventario()->exists())) {
             throw ValidationException::withMessages(['lote' => 'No hay repuestos solicitados en el pedido abierto.']);
         }
 
@@ -109,6 +113,7 @@ class ProveedorController extends Controller
         return response()->json([
             'id' => $lote->id,
             'lineas' => $lote->items()->count(),
+            'inventario' => $lote->inventario()->count(),
             'whatsapp' => $avisos->loteCerrado($lote, $request->user()) + $this->vinculado($request),
         ]);
     }

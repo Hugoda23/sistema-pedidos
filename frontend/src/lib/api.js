@@ -12,6 +12,7 @@ export class ApiError extends Error {
     super(data?.message ?? 'Error de comunicación con el servidor')
     this.status = status
     this.errors = data?.errors ?? {}
+    this.data = data
   }
 }
 

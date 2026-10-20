@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { primerError } from '../lib/errores'
 import { fecha, fechaHora } from '../lib/formato'
 import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import { EstadoItem } from '../components/EstadoBadge'
-import { Link } from 'react-router-dom'
 import BotonExcel from '../components/BotonExcel'
-import { Alerta, Boton, Campo, Encabezado, Input, Modal, Select, Textarea } from '../components/ui'
-import { ChatBubbleLeftRightIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
+import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
 
 const PESTANAS = [
   ['por_atender', 'Por atender'],
@@ -20,8 +18,6 @@ const PESTANAS = [
   ['descontinuado', 'Descontinuados'],
   ['todos', 'Todos'],
 ]
-
-const hoy = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
 
 export default function Proveedor() {
   const { puede } = useAuth()
@@ -67,7 +63,8 @@ export default function Proveedor() {
   }
 
   const cerrarLote = async () => {
-    if (!confirm(`¿Cerrar el pedido abierto con ${abierto.lineas} línea(s)? Lo que pidan los vendedores después irá al siguiente pedido.`)) return
+    const inv = abierto.inventario ? ` y ${abierto.inventario} de inventario` : ''
+    if (!confirm(`¿Cerrar el pedido abierto con ${abierto.lineas} línea(s) de clientes${inv}? Lo que pidan los vendedores después irá al siguiente pedido.`)) return
     try {
       const r = await api('/proveedor/lotes/cerrar', { method: 'POST' })
       setAviso({ tipo: 'ok', texto: 'Pedido cerrado.' })
@@ -134,11 +131,12 @@ export default function Proveedor() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
           <div className="text-sm">
             <div className="font-semibold text-blue-900">Pedido abierto #{abierto.id}</div>
-            <div className="text-blue-800">Desde {fechaHora(abierto.abierto_en)} · {abierto.lineas} línea(s) · {abierto.unidades} unidad(es) · {abierto.por_atender} por atender</div>
+            <div className="text-blue-800">Desde {fechaHora(abierto.abierto_en)} · {abierto.lineas} línea(s) de clientes · {abierto.unidades} unidad(es) · {abierto.por_atender} por atender
+              {abierto.inventario > 0 && <> · <Link to="/inventario" className="font-medium underline">{abierto.inventario} de inventario</Link></>}</div>
           </div>
           <div className="flex gap-2">
             <Boton variante="secundario" onClick={() => { setFiltros({ ...filtros, lote_id: String(abierto.id), estado: 'todos' }); setVista('consolidado') }}>Ver consolidado</Boton>
-            {puede('proveedor.cerrar_lote') && abierto.lineas > 0 && <Boton onClick={cerrarLote}>Cerrar pedido</Boton>}
+            {puede('proveedor.cerrar_lote') && abierto.lineas + abierto.inventario > 0 && <Boton onClick={cerrarLote}>Cerrar pedido</Boton>}
           </div>
         </div>
       )}
@@ -193,63 +191,5 @@ export default function Proveedor() {
 
       {dialogo && <DialogoEstado dialogo={dialogo} onCerrar={() => setDialogo(null)} onEnviar={cambiar} />}
     </div>
-  )
-}
-
-/** Qué pasó con los avisos por WhatsApp a los vendedores. */
-function ResultadoWhatsapp({ r, onCerrar }) {
-  if (!r.enviados.length && !r.sin_telefono.length) return null
-  const detenido = r.enviados.length > 0 && !r.vinculado
-  return (
-    <div className={`my-3 flex items-start justify-between gap-3 rounded-xl border p-3 text-sm ${detenido ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-green-200 bg-green-50 text-green-900'}`}>
-      <div className="space-y-1">
-        {r.enviados.length > 0 && (detenido
-          ? <p className="flex items-start gap-1.5"><ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" /><span>Su WhatsApp no está vinculado: el aviso a {r.enviados.join(', ')} quedó detenido. <Link to="/whatsapp" className="font-medium underline">Vincúlelo y reintente</Link>.</span></p>
-          : <p className="flex items-center gap-1.5"><ChatBubbleLeftRightIcon className="h-4 w-4 shrink-0" />Aviso por WhatsApp enviado a: {r.enviados.join(', ')}.</p>)}
-        {r.sin_telefono.length > 0 && <p className="text-amber-800">Sin teléfono registrado (solo campanita): {r.sin_telefono.join(', ')}.</p>}
-      </div>
-      <button onClick={onCerrar} aria-label="Cerrar" className="rounded p-0.5 hover:bg-black/5"><XMarkIcon className="h-4 w-4" /></button>
-    </div>
-  )
-}
-
-function DialogoEstado({ dialogo, onCerrar, onEnviar }) {
-  const [fechaIngreso, setFechaIngreso] = useState(dialogo.fila?.fecha_ingreso ?? '')
-  const [nota, setNota] = useState('')
-  const [errores, setErrores] = useState({})
-  const [msg, setMsg] = useState('')
-  const noDisp = dialogo.estado === 'no_disponible'
-  const cuantos = dialogo.ids.length
-
-  const enviar = async (e) => {
-    e.preventDefault()
-    const err = await onEnviar(dialogo.estado, dialogo.ids, noDisp ? { fecha_ingreso: fechaIngreso, nota } : { nota })
-    if (err) { setErrores(primerError(err.errors)); setMsg(err.message) }
-  }
-
-  const titulo = dialogo.fila ? `${dialogo.fila.codigo} · ${dialogo.fila.descripcion}` : `${cuantos} línea(s)`
-
-  return (
-    <Modal abierto titulo={noDisp ? 'No disponible' : 'Repuesto descontinuado'} onCerrar={onCerrar}>
-      <form onSubmit={enviar} className="space-y-3">
-        <p className="text-sm text-slate-600">{titulo}</p>
-        {!Object.keys(errores).length && <Alerta>{msg}</Alerta>}
-        {noDisp ? (
-          <Campo label="Fecha aproximada de ingreso" error={errores.fecha_ingreso}>
-            <Input type="date" required min={hoy()} value={fechaIngreso} onChange={(e) => setFechaIngreso(e.target.value)} />
-          </Campo>
-        ) : (
-          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">La línea quedará como descontinuada, ya no se le cobrará al cliente y se le avisará al vendedor.</p>
-        )}
-        {errores.ids && <Alerta>{errores.ids}</Alerta>}
-        <Campo label="Nota para el vendedor (opcional)" error={errores.nota}>
-          <Textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder={noDisp ? 'Ej.: viene en el próximo contenedor' : 'Ej.: ya no se trabaja, sugerir alternativa'} />
-        </Campo>
-        <div className="flex justify-end gap-2">
-          <Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton>
-          <Boton variante={noDisp ? 'primario' : 'peligro'}>Guardar</Boton>
-        </div>
-      </form>
-    </Modal>
   )
 }

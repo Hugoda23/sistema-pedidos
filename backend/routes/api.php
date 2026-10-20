@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClienteController;
+use App\Http\Controllers\Api\InventarioController;
 use App\Http\Controllers\Api\NotificacionController;
 use App\Http\Controllers\Api\PanelController;
 use App\Http\Controllers\Api\PedidoController;
@@ -64,6 +65,15 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
         Route::post('/pedidos/{pedido}/whatsapp', [WhatsAppController::class, 'alCliente'])->middleware('throttle:20,1');
         Route::post('/pedido-items/{item}/preguntar', [PedidoController::class, 'preguntarProveedor'])->middleware('throttle:20,1');
         Route::post('/pedidos/{pedido}/anular', [PedidoController::class, 'anular'])->middleware('permission:pedidos.anular');
+    });
+
+    Route::middleware('permission:inventario.ver')->prefix('inventario')->group(function () {
+        Route::get('/', [InventarioController::class, 'index']);
+        Route::get('/exportar', [InventarioController::class, 'exportar']);
+        Route::post('/', [InventarioController::class, 'store'])->middleware('permission:inventario.gestionar');
+        Route::put('/{item}', [InventarioController::class, 'update'])->middleware('permission:inventario.gestionar');
+        Route::delete('/{item}', [InventarioController::class, 'destroy'])->middleware('permission:inventario.gestionar');
+        Route::post('/estado', [InventarioController::class, 'cambiarEstado'])->middleware('permission:inventario.atender');
     });
 
     Route::middleware('permission:proveedor.ver')->prefix('proveedor')->group(function () {

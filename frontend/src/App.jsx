@@ -10,6 +10,7 @@ import NuevoPedido from './pages/NuevoPedido'
 import PedidoDetalle from './pages/PedidoDetalle'
 import Proveedor from './pages/Proveedor'
 import Perfil from './pages/Perfil'
+import Inventario from './pages/Inventario'
 import MiWhatsapp from './pages/MiWhatsapp'
 import Roles from './pages/Roles'
 
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="pedidos" element={<Protegida permiso="pedidos.ver"><Pedidos /></Protegida>} />
         <Route path="pedidos/nuevo" element={<Protegida permiso="pedidos.gestionar"><NuevoPedido /></Protegida>} />
         <Route path="pedidos/:id" element={<Protegida permiso="pedidos.ver"><PedidoDetalle /></Protegida>} />
+        <Route path="inventario" element={<Protegida permiso="inventario.ver"><Inventario /></Protegida>} />
         <Route path="clientes" element={<Protegida permiso="clientes.ver"><Clientes /></Protegida>} />
         <Route path="proveedor" element={<Protegida permiso="proveedor.ver"><Proveedor /></Protegida>} />
         <Route path="usuarios" element={<Protegida permiso="usuarios.ver"><Usuarios /></Protegida>} />

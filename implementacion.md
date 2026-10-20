@@ -30,4 +30,5 @@
 6. [x] Fecha aprox. de ingreso → tarea diaria (08:00) + campanita + WhatsApp por usuario (whatsapp-web.js).
 7. [x] Exportar a Excel (pedidos + líneas; proveedor detalle + sumado, sin cliente ni precio). Historial ya estaba (paso 4).
 8. [x] Panel de inicio por rol, «Mi perfil» (teléfono y contraseña), DemoSeeder con estados variados.
-9. [ ] Despliegue en el VPS de Taller-sis (tras subirlo a KVM 2): compose de producción, dominio, HTTPS.
+9. [x] Pedido de inventario (lista compartida, alerta de código repetido, mismo lote que los pedidos).
+10. [ ] Despliegue en el VPS de Taller-sis (tras subirlo a KVM 2): compose de producción, dominio, HTTPS.

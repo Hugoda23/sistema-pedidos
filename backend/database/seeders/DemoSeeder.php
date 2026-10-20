@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\EstadoItem;
 use App\Models\Cliente;
+use App\Models\InventarioItem;
 use App\Models\Lote;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
@@ -104,7 +105,7 @@ class DemoSeeder extends Seeder
     private function usuarios(): Collection
     {
         Role::findOrCreate('Supervisor', 'web')->syncPermissions([
-            'pedidos.ver', 'pedidos.ver_todos', 'clientes.ver', 'productos.ver', 'proveedor.ver', 'reportes.ver',
+            'pedidos.ver', 'pedidos.ver_todos', 'clientes.ver', 'inventario.ver', 'proveedor.ver', 'reportes.ver',
         ]);
 
         User::where('email', 'vendedor@pedidos.test')->update(['name' => 'Carlos Méndez', 'telefono' => '55550001']);
@@ -300,6 +301,32 @@ class DemoSeeder extends Seeder
             $item->cambiarEstado(EstadoItem::Anulado, $item->pedido->vendedor, 'El cliente ya no lo necesita');
             $item->pedido->recalcular();
         }
+
+        // Pedido de inventario: lo que falta en la tienda.
+        $lote = Lote::actual();
+        $prov = $this->proveedor;
+        $inventario = [
+            [0, 'ACE-20W50-1L', 'Aceite 20W-50 4T (1 litro)', 24, null],
+            [1, 'BUJ-CR7HSA', 'Bujía NGK CR7HSA', 10, null],
+            [2, 'CAM-275-18', 'Cámara de llanta 2.75-18', 6, null],
+            [0, 'PF-FZ-D', 'Pastillas de freno delanteras Yamaha FZ', 4, 'no_disponible'],
+            [1, 'FIL-ACE-XR150', 'Filtro de aceite Honda XR150', 12, 'enviado'],
+        ];
+        foreach ($inventario as [$v, $codigo, $nombre, $cantidad, $estado]) {
+            $item = InventarioItem::create(['codigo' => $codigo, 'descripcion' => $nombre, 'cantidad' => $cantidad,
+                'estado' => EstadoItem::Pendiente, 'lote_id' => $lote->id, 'creado_por' => $vendedores[$v]->id]);
+            $item->registrar($vendedores[$v], 'agregado', $cantidad);
+            if ($estado) {
+                $item->update(['estado' => $estado, 'atendido_por' => $prov->id, 'atendido_en' => now(),
+                    'fecha_ingreso' => $estado === 'no_disponible' ? today()->addDays(5) : null,
+                    'nota_proveedor' => $estado === 'no_disponible' ? 'Llegan la próxima semana' : null]);
+                $item->registrar($prov, $estado);
+            }
+        }
+        // Un segundo vendedor sumó al aceite.
+        $aceite = InventarioItem::where('codigo', 'ACE-20W50-1L')->first();
+        $aceite->increment('cantidad', 12);
+        $aceite->registrar($vendedores[2], 'sumado', 12);
 
         // Pedidos de hoy en el pedido abierto, para que el proveedor tenga qué atender.
         $clientes = Cliente::orderBy('id')->get();

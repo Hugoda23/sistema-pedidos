@@ -58,6 +58,31 @@ class Avisos
         return $resumen;
     }
 
+    /** El proveedor atendió repuestos del pedido de inventario: se le avisa a quien los agregó. */
+    public function inventarioActualizado(Collection $items, EstadoItem $estado, User $proveedor, ?string $nota): array
+    {
+        $items = Modelos::make($items->all())->load('creador');
+        $resumen = ['enviados' => [], 'sin_telefono' => []];
+        $titulo = match ($estado) {
+            EstadoItem::Enviado => 'Inventario: repuestos enviados',
+            EstadoItem::NoDisponible => 'Inventario: repuestos sin existencia',
+            EstadoItem::Descontinuado => 'Inventario: repuestos descontinuados',
+            default => 'Inventario: actualización del proveedor',
+        };
+
+        foreach ($items->groupBy('creado_por') as $lineas) {
+            $vendedor = $lineas->first()->creador;
+            $texto = "*{$titulo}*\n\n".$lineas->map(fn ($i) => "• {$i->codigo} {$i->descripcion} ({$i->cantidad} u.)"
+                .($estado === EstadoItem::NoDisponible ? ' — ingreso aprox. '.$i->fecha_ingreso->format('d/m/Y') : ''))->implode("\n")
+                .($nota ? "\n\nNota: {$nota}" : '');
+
+            $vendedor->notify(new Aviso($titulo, $this->resumen($lineas), '/inventario'));
+            $this->aUsuario($proveedor, $vendedor, $texto, 'inventario', null, $resumen);
+        }
+
+        return $resumen;
+    }
+
     /** El proveedor cerró el pedido consolidado: cada vendedor recibe la lista de lo suyo. */
     public function loteCerrado(Lote $lote, User $proveedor): array
     {

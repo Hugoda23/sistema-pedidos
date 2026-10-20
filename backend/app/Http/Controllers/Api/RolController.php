@@ -84,7 +84,7 @@ class RolController extends Controller
     private function catalogo(): array
     {
         $modulos = ['usuarios' => 'Usuarios', 'roles' => 'Roles', 'clientes' => 'Clientes',
-            'pedidos' => 'Pedidos', 'proveedor' => 'Proveedor', 'reportes' => 'Reportes'];
+            'pedidos' => 'Pedidos', 'inventario' => 'Inventario', 'proveedor' => 'Proveedor', 'reportes' => 'Reportes'];
 
         return collect(config('permisos.permisos'))
             ->map(fn ($desc, $nombre) => ['name' => $nombre, 'descripcion' => $desc])

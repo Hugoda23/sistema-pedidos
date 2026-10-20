@@ -37,6 +37,11 @@ class Lote extends Model
         return $this->hasMany(PedidoItem::class);
     }
 
+    public function inventario(): HasMany
+    {
+        return $this->hasMany(InventarioItem::class);
+    }
+
     public function cerradoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cerrado_por');
