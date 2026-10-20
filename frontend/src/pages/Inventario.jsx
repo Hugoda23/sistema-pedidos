@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { primerError } from '../lib/errores'
@@ -8,13 +8,15 @@ import DataTable from '../components/DataTable'
 import BotonExcel from '../components/BotonExcel'
 import { EstadoItem } from '../components/EstadoBadge'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
+import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 import { Alerta, Boton, Campo, Encabezado, Input, Modal } from '../components/ui'
-import { ExclamationTriangleIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 const PESTANAS = [
   ['activos', 'Pendientes'],
   ['revisar', 'Revisar ingreso'],
   ['atendidos', 'Enviados y descontinuados'],
+  ['pedidos', 'Pedidos'],
 ]
 
 const VACIO = { codigo: '', descripcion: '', cantidad: 1 }
@@ -33,6 +35,15 @@ export default function Inventario() {
   const [dialogo, setDialogo] = useState(null)
   const [aviso, setAviso] = useState({ tipo: 'ok', texto: '' })
   const [whatsapp, setWhatsapp] = useState(null)
+  const [pedidos, setPedidos] = useState([])
+  const [reporte, setReporte] = useState(null) // id del pedido
+
+  const cargarPedidos = useCallback(() => api('/inventario/pedidos').then(setPedidos).catch(() => {}), [])
+  useEffect(() => { cargarPedidos() }, [cargarPedidos])
+  const abierto = pedidos.find((p) => p.abierto)
+  const verPedidos = filtros.estado === 'pedidos'
+  // Al entrar a «Pedidos» se recargan los totales (pudieron cambiar por ediciones o envíos).
+  useEffect(() => { if (verPedidos) cargarPedidos() }, [verPedidos, cargarPedidos])
 
   const agregar = async (datos) => {
     setErrores({})
@@ -41,6 +52,7 @@ export default function Inventario() {
       const r = await api('/inventario', { method: 'POST', body: datos })
       setNuevo(VACIO)
       setDuplicado(null)
+      cargarPedidos()
       setAviso({ tipo: 'ok', texto: r.sumado ? `Se sumaron ${datos.cantidad} a ${r.codigo}: ahora son ${r.cantidad}.` : `${r.codigo} agregado.` })
       recargar()
     } catch (e) {
@@ -52,7 +64,7 @@ export default function Inventario() {
 
   const quitar = async (f) => {
     if (!confirm(`¿Quitar ${f.codigo} del pedido de inventario?`)) return
-    try { await api(`/inventario/${f.id}`, { method: 'DELETE' }); recargar() } catch (e) { setAviso({ tipo: 'error', texto: e.message }) }
+    try { await api(`/inventario/${f.id}`, { method: 'DELETE' }); recargar(); cargarPedidos() } catch (e) { setAviso({ tipo: 'error', texto: e.message }) }
   }
 
   const cambiar = async (estado, ids, extra = {}) => {
@@ -64,6 +76,7 @@ export default function Inventario() {
       setDialogo(null)
       setMarcados(new Set())
       recargar()
+      cargarPedidos()
       return null
     } catch (e) {
       return e
@@ -123,7 +136,14 @@ export default function Inventario() {
 
   return (
     <div>
-      <Encabezado titulo="Pedido de inventario">
+      <Encabezado titulo={
+        <span className="flex flex-wrap items-center gap-3">
+          Pedido de inventario
+          {abierto
+            ? <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">Pedido #{abierto.id} · abierto desde {fecha(abierto.abierto_en)}</span>
+            : <span className="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-600">Sin pedido abierto</span>}
+        </span>
+      }>
         <BotonExcel ruta="/inventario/exportar" params={{ estado: filtros.estado, q: filtros.q }} nombre="inventario.xlsx"
           onError={(m) => setAviso({ tipo: 'error', texto: m })} />
       </Encabezado>
@@ -157,7 +177,7 @@ export default function Inventario() {
           </button>
         ))}
       </div>
-      <Input className="mb-3 sm:max-w-sm" placeholder="Buscar código o descripción" value={filtros.q} onChange={(e) => setFiltros({ ...filtros, q: e.target.value })} />
+      {!verPedidos && <Input className="mb-3 sm:max-w-sm" placeholder="Buscar código o descripción" value={filtros.q} onChange={(e) => setFiltros({ ...filtros, q: e.target.value })} />}
 
       <Alerta tipo={aviso.tipo}>{aviso.texto}</Alerta>
       <Alerta>{error}</Alerta>
@@ -172,11 +192,16 @@ export default function Inventario() {
         </div>
       )}
 
-      <div className="mt-2">
+      {verPedidos ? <TablaPedidos pedidos={pedidos} onReporte={setReporte} /> : <div className="mt-2">
         <DataTable columnas={columnas} datos={filas} pagina={pagina} onPagina={setPage} cargando={cargando}
           vacio={atendidos ? 'Todavía no hay repuestos enviados.' : 'No falta nada en el inventario.'}
           claseFila={(f) => (f.revisar_ingreso ? 'bg-red-50' : '')} />
-      </div>
+      </div>}
+
+      {reporte && (
+        <VistaPreviaDocumento titulo={`Reporte de inventario · Pedido #${reporte}`} ruta={`/inventario/pedidos/${reporte}/reporte`}
+          nombrePdf={`inventario-pedido-${reporte}.pdf`} onCerrar={() => setReporte(null)} />
+      )}
 
       {duplicado && (
         <Modal abierto titulo="Este código ya está agregado" onCerrar={() => setDuplicado(null)}>
@@ -208,6 +233,32 @@ export default function Inventario() {
         avisoDescontinuado="El repuesto saldrá de la lista de inventario y se le avisará a quien lo agregó." />}
     </div>
   )
+}
+
+/** Pedidos al proveedor que llevaron inventario, cada uno con su reporte de movimientos. */
+function TablaPedidos({ pedidos, onReporte }) {
+  const columnas = useMemo(() => [
+    { header: 'Pedido', accessorKey: 'id', cell: (c) => <span className="font-semibold">#{c.getValue()}</span> },
+    { header: 'Abierto', accessorKey: 'abierto_en', cell: (c) => fechaHora(c.getValue()) },
+    {
+      header: 'Cerrado', id: 'cerrado',
+      cell: ({ row: { original: p } }) => p.abierto
+        ? <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">Abierto</span>
+        : <span>{fechaHora(p.cerrado_en)}{p.cerrado_por && <span className="text-slate-500"> · {p.cerrado_por}</span>}</span>,
+    },
+    { header: 'Repuestos', accessorKey: 'repuestos' },
+    { header: 'Unidades', accessorKey: 'unidades' },
+    { header: 'Enviados', accessorKey: 'enviados' },
+    { header: 'Pendientes', accessorKey: 'pendientes' },
+    {
+      id: 'reporte', header: '',
+      cell: ({ row: { original: p } }) => (
+        <Boton variante="secundario" icono={DocumentTextIcon} onClick={() => onReporte(p.id)}>Reporte</Boton>
+      ),
+    },
+  ], [onReporte])
+
+  return <div className="mt-2"><DataTable columnas={columnas} datos={pedidos} vacio="Todavía no hay pedidos con inventario." /></div>
 }
 
 function EditarLinea({ fila, onCerrar, onGuardado }) {

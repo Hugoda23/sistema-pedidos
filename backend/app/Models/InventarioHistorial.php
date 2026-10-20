@@ -18,6 +18,21 @@ class InventarioHistorial extends Model
         return ['created_at' => 'datetime'];
     }
 
+    public const ACCIONES = [
+        'agregado' => 'Agregado',
+        'sumado' => 'Sumó cantidad',
+        'editado' => 'Editado',
+        'quitado' => 'Quitado',
+        'enviado' => 'Enviado',
+        'no_disponible' => 'No disponible',
+        'descontinuado' => 'Descontinuado',
+    ];
+
+    public function etiqueta(): string
+    {
+        return self::ACCIONES[$this->accion] ?? $this->accion;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

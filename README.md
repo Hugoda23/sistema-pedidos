@@ -45,6 +45,9 @@ los vendedores y el proveedor. Si se agrega un código que ya está en la lista,
 pregunta si se suma la cantidad (si el proveedor ya cerró ese pedido, va como línea nueva en el
 siguiente). Va en el mismo pedido consolidado que los pedidos de clientes: «Cerrar pedido» cierra
 ambos. Lo que el proveedor marca enviado o descontinuado sale de la lista (pestaña «Enviados»).
+Junto al título se ve el número del pedido abierto; la pestaña «Pedidos» lista cada pedido con su
+**reporte** (vista previa, imprimir o PDF) con todos los movimientos: agregado, sumado, editado,
+quitado, enviado, no disponible y descontinuado, con usuario y hora. Quitar no borra: queda en el reporte.
 
 ## Comprobante del pedido
 

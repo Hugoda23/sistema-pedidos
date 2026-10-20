@@ -119,6 +119,38 @@ class InventarioTest extends TestCase
 
         Lote::query()->update(['estado' => 'abierto']);
         $this->deleteJson("/api/inventario/{$id}")->assertNoContent();
+
+        // Quitado no se borra: sale de la lista pero queda el movimiento, y el código se puede volver a pedir.
+        $this->getJson('/api/inventario')->assertJsonCount(0, 'data');
+        $this->assertSame('anulado', InventarioItem::find($id)->estado->value);
+        $this->assertSame(['agregado', 'editado', 'quitado'], InventarioItem::find($id)->historial->pluck('accion')->all());
+        $this->assertSame('Cantidad 2 → 6', InventarioItem::find($id)->historial[1]->nota);
+        $this->agregar($this->ana, 'FIL-1', 1)->assertCreated();
+    }
+
+    public function test_lista_de_pedidos_y_reporte_con_todos_los_movimientos(): void
+    {
+        $id = $this->agregar($this->ana, 'FIL-1', 2)->json('id');
+        $this->agregar($this->beto, 'FIL-1', 3, sumar: true);
+        $bujia = $this->agregar($this->beto, 'BUJ', 1)->json('id');
+        $this->actingAs($this->beto)->deleteJson("/api/inventario/{$bujia}")->assertNoContent();
+        $this->actingAs($this->proveedor)->postJson('/api/proveedor/lotes/cerrar')->assertOk();
+        $this->postJson('/api/inventario/estado', ['ids' => [$id], 'estado' => 'enviado'])->assertOk();
+
+        $lote = Lote::first();
+        $this->getJson('/api/inventario/pedidos')->assertOk()
+            ->assertJsonPath('0.id', $lote->id)->assertJsonPath('0.abierto', false)
+            ->assertJsonPath('0.cerrado_por', 'Prov')
+            ->assertJsonPath('0.repuestos', 1)->assertJsonPath('0.unidades', 5)->assertJsonPath('0.enviados', 1);
+
+        $html = $this->actingAs($this->ana)->get("/api/inventario/pedidos/{$lote->id}/reporte")->assertOk()->getContent();
+        foreach (["#{$lote->id}", 'Motorepuestos Mota', 'FIL-1', 'Ana (2), Beto (3)', 'Agregado', 'Sumó cantidad', 'Quitado', 'Enviado', 'Prov', 'Beto'] as $t) {
+            $this->assertStringContainsString($t, $html, "Falta «{$t}»");
+        }
+
+        $pdf = $this->get("/api/inventario/pedidos/{$lote->id}/reporte?formato=pdf")->assertOk();
+        $this->assertStringStartsWith('%PDF', $pdf->getContent());
+        $this->assertStringContainsString("inventario-pedido-{$lote->id}.pdf", $pdf->headers->get('content-disposition'));
     }
 
     public function test_permisos(): void

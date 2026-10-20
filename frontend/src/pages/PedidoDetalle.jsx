@@ -7,7 +7,7 @@ import { ACCION_ITEM } from '../lib/estados'
 import { fecha, fechaHora, moneda } from '../lib/formato'
 import { EstadoItem, EstadoPedido } from '../components/EstadoBadge'
 import WhatsappCliente from '../components/WhatsappCliente'
-import VistaPreviaComprobante from '../components/VistaPreviaComprobante'
+import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 import { Alerta, Boton, Campo, Input, Modal, Textarea } from '../components/ui'
 import { ArrowLeftIcon, ChatBubbleLeftRightIcon, NoSymbolIcon, PlusIcon, PrinterIcon } from '@heroicons/react/24/outline'
 
@@ -160,7 +160,8 @@ export default function PedidoDetalle() {
 
       {wa && <WhatsappCliente pedido={p} onCerrar={() => setWa(false)} plantilla={wa === 'detalle' ? 'detalle' : undefined} />}
       {comprobante && (
-        <VistaPreviaComprobante pedido={p} onCerrar={() => setComprobante(false)}
+        <VistaPreviaDocumento titulo={`Comprobante ${p.numero}`} ruta={`/pedidos/${p.id}/comprobante`} nombrePdf={`pedido-${p.numero}.pdf`}
+          onCerrar={() => setComprobante(false)}
           onWhatsapp={gestiona && !p.anulado ? () => { setComprobante(false); setWa('detalle') } : null} />
       )}
       {anular && <AnularPedido p={p} onCerrar={() => setAnular(false)} onListo={(nuevo) => { setP(nuevo); setAnular(false) }} />}

@@ -107,16 +107,28 @@ class InventarioController extends Controller
             'cantidad' => ['sometimes', 'required', 'integer', 'min:1', 'max:9999'],
         ]);
 
+        $cambios = [];
+        if (isset($datos['cantidad']) && (int) $datos['cantidad'] !== $item->cantidad) {
+            $cambios[] = "cantidad {$item->cantidad} → {$datos['cantidad']}";
+        }
+        if (isset($datos['descripcion']) && trim($datos['descripcion']) !== $item->descripcion) {
+            $cambios[] = "descripción «{$item->descripcion}» → «".trim($datos['descripcion']).'»';
+        }
+
         $item->update($datos);
-        $item->registrar($request->user(), 'editado', $item->cantidad);
+        if ($cambios) {
+            $item->registrar($request->user(), 'editado', $item->cantidad, ucfirst(implode('; ', $cambios)));
+        }
 
         return response()->json($this->datos($item->load(['creador', 'lote', 'historial.user']), $request));
     }
 
-    public function destroy(InventarioItem $item): JsonResponse
+    /** Quitar no borra: queda como «anulado» para que el reporte del pedido muestre el movimiento. */
+    public function destroy(Request $request, InventarioItem $item): JsonResponse
     {
         $this->editable($item);
-        $item->delete();
+        $item->update(['estado' => EstadoItem::Anulado]);
+        $item->registrar($request->user(), 'quitado', $item->cantidad);
 
         return response()->json(null, 204);
     }
@@ -180,6 +192,52 @@ class InventarioController extends Controller
                     $i->lote_id ? "#{$i->lote_id}" : '', $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
                 ]), [4 => Excel::FECHA_HORA, 7 => Excel::FECHA])
             ->descargar('inventario-'.now()->format('Y-m-d').'.xlsx');
+    }
+
+    /** Pedidos al proveedor que llevan inventario (y el abierto, aunque aún no tenga). */
+    public function pedidos(): JsonResponse
+    {
+        $lotes = Lote::query()
+            ->where(fn ($q) => $q->where('estado', 'abierto')->orWhereHas('inventario'))
+            ->with('cerradoPor:id,name')
+            ->withCount([
+                'inventario as repuestos' => fn ($q) => $q->where('estado', '!=', 'anulado'),
+                'inventario as enviados' => fn ($q) => $q->where('estado', 'enviado'),
+                'inventario as pendientes' => fn ($q) => $q->whereIn('estado', InventarioItem::ACTIVOS),
+            ])
+            ->withSum(['inventario as unidades' => fn ($q) => $q->where('estado', '!=', 'anulado')], 'cantidad')
+            ->orderByRaw("CASE WHEN estado = 'abierto' THEN 0 ELSE 1 END")
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get();
+
+        return response()->json($lotes->map(fn (Lote $l) => [
+            'id' => $l->id,
+            'abierto' => $l->abierto(),
+            'abierto_en' => $l->created_at->toIso8601String(),
+            'cerrado_en' => $l->cerrado_en?->toIso8601String(),
+            'cerrado_por' => $l->cerradoPor?->name,
+            'repuestos' => $l->repuestos,
+            'unidades' => (int) $l->unidades,
+            'enviados' => $l->enviados,
+            'pendientes' => $l->pendientes,
+        ]));
+    }
+
+    /** Reporte de un pedido: sus repuestos y cada movimiento. HTML para la vista previa, o PDF. */
+    public function reporte(Request $request, Lote $lote)
+    {
+        $items = $lote->inventario()->with(['creador:id,name', 'historial.user:id,name'])->orderBy('codigo')->get();
+        $movimientos = $items->flatMap(fn (InventarioItem $i) => $i->historial->map(fn ($h) => ['item' => $i, 'h' => $h]))
+            ->sortBy(fn ($m) => [$m['h']->created_at->timestamp, $m['h']->id])->values();
+        $vista = view('reportes.inventario', ['lote' => $lote->load('cerradoPor'), 'items' => $items, 'movimientos' => $movimientos]);
+
+        if ($request->query('formato') === 'pdf') {
+            return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($vista->render())->setPaper('letter')
+                ->download("inventario-pedido-{$lote->id}.pdf");
+        }
+
+        return response($vista->render())->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     private function filtrar(Request $request): Builder
