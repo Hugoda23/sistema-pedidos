@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { fecha, fechaHora, moneda } from '../lib/formato'
+import { fecha, moneda } from '../lib/formato'
 import { Alerta, Boton } from '../components/ui'
 import { ChatBubbleLeftRightIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/react/24/outline'
 
@@ -107,12 +107,6 @@ export default function Inicio() {
             <Tarjeta etiqueta="Sin existencia" valor={p.sin_existencia} contexto="con fecha aproximada" a="/proveedor?estado=no_disponible" />
             <Tarjeta etiqueta="Enviados" valor={p.enviados_semana} contexto="en los últimos 7 días" />
           </div>
-          {p.abierto && (
-            <p className="rounded-xl border bg-white px-4 py-3 text-sm text-slate-600">
-              Pedido de clientes <b>#{p.abierto.numero}</b> abierto desde {fechaHora(p.abierto.desde)}: {p.abierto.lineas} línea(s), {p.abierto.unidades} unidad(es).{' '}
-              <Link to="/proveedor" className="text-blue-600 hover:underline">Ver repuestos</Link>
-            </p>
-          )}
           {p.inventario_abierto && (
             <p className="rounded-xl border bg-white px-4 py-3 text-sm text-slate-600">
               Pedido de inventario <b>#{p.inventario_abierto.numero}</b> abierto: {p.inventario_abierto.repuestos} repuesto(s) por atender.{' '}

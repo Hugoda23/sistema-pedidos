@@ -44,7 +44,6 @@ export default function Proveedor() {
     api('/proveedor/consolidado', { params: { estado, q, lote_id } }).then(setConsolidado).catch(() => {})
   }, [vista, filtros])
 
-  const abierto = lotes.find((l) => l.estado === 'abierto')
   const set = (k) => (e) => setFiltros({ ...filtros, [k]: e.target.value })
 
   const refrescar = () => { recargar(); cargarLotes() }
@@ -117,21 +116,7 @@ export default function Proveedor() {
           onError={(m) => setAviso({ tipo: 'error', texto: m })} />
       </Encabezado>
 
-      {abierto && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
-          <div className="text-sm">
-            <div className="font-semibold text-blue-900">Pedido de clientes #{abierto.numero} abierto</div>
-            <div className="text-blue-800">Desde {fechaHora(abierto.abierto_en)} · {abierto.lineas} línea(s) · {abierto.unidades} unidad(es) · {abierto.por_atender} por atender</div>
-          </div>
-          <div className="flex gap-2">
-            <Boton variante="secundario" onClick={() => { setFiltros({ ...filtros, lote_id: String(abierto.id), estado: 'todos' }); setVista('consolidado') }}>Total por código</Boton>
-          </div>
-        </div>
-      )}
 
-      {lotes.length > 0 && !abierto && (
-        <p className="mb-4 rounded-xl border bg-white p-4 text-sm text-slate-600">No hay pedido de clientes abierto. Lo próximo que soliciten los vendedores abrirá uno nuevo.</p>
-      )}
 
       <div className="mb-3 flex flex-wrap gap-1 border-b">
         {PESTANAS.map(([k, t]) => (
