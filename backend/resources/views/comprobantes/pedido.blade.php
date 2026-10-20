@@ -129,8 +129,7 @@
     @endif
 
     <div class="pie">
-        Gracias por su preferencia. Los precios y fechas de ingreso de repuestos sin existencia son aproximados.<br>
-        Este documento no es una factura. · Generado el {{ now()->format('d/m/Y H:i') }}
+        Gracias por su preferencia. Este documento no es una factura. · Generado el {{ now()->format('d/m/Y H:i') }}
     </div>
 </div>
 </body>
