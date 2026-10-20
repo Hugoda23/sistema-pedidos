@@ -75,7 +75,7 @@ export default function Proveedor() {
       cell: ({ row }) => row.original.acciones.length > 0 && <input type="checkbox" aria-label="Marcar" checked={marcados.has(row.original.id)} onChange={() => alternar(row.original.id)} />,
     }] : []),
     { header: 'Código', accessorKey: 'codigo', cell: (c) => <span className="font-mono font-medium">{c.getValue()}</span> },
-    { header: 'Descripción', accessorKey: 'descripcion', cell: (c) => <div className="min-w-40 max-w-xs whitespace-normal">{c.getValue()}</div> },
+    { header: 'Descripción', accessorKey: 'descripcion', cell: (c) => <div className="min-w-32 max-w-60 whitespace-normal">{c.getValue()}</div> },
     { header: 'Cant.', accessorKey: 'cantidad', cell: (c) => <span className="font-semibold">{c.getValue()}</span> },
     { header: 'Vendedor', accessorKey: 'vendedor' },
     { header: 'Solicitado', accessorKey: 'solicitado', cell: (c) => <span title={fechaHora(c.getValue())}>{fecha(c.getValue())}</span> },
@@ -85,7 +85,7 @@ export default function Proveedor() {
         <div>
           <EstadoItem estado={f.estado} />
           {f.fecha_ingreso && <div className={`text-xs ${f.revisar_ingreso ? 'font-semibold text-red-600' : 'text-amber-700'}`}>{f.revisar_ingreso ? '¿Ya ingresó? ' : 'Ingreso aprox. '}{fecha(f.fecha_ingreso)}</div>}
-          {f.nota_proveedor && <div className="max-w-56 truncate text-xs text-slate-500" title={f.nota_proveedor}>{f.nota_proveedor}</div>}
+          {f.nota_proveedor && <div className="max-w-44 truncate text-xs text-slate-500" title={f.nota_proveedor}>{f.nota_proveedor}</div>}
         </div>
       ),
     },
