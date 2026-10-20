@@ -7,29 +7,58 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\UniqueConstraintViolationException;
 
+/**
+ * Pedido consolidado al proveedor. Hay dos tipos que se abren y cierran por separado:
+ *   clientes   → líneas de los pedidos de clientes («Pedido #13»)
+ *   inventario → repuestos que faltan en la tienda («Inventario #4»)
+ */
 class Lote extends Model
 {
-    protected $fillable = ['estado', 'cerrado_por', 'cerrado_en'];
+    public const CLIENTES = 'clientes';
+
+    public const INVENTARIO = 'inventario';
+
+    protected $fillable = ['tipo', 'numero', 'estado', 'cerrado_por', 'cerrado_en'];
 
     protected function casts(): array
     {
-        return ['cerrado_en' => 'datetime'];
+        return ['cerrado_en' => 'datetime', 'numero' => 'integer'];
     }
 
-    /** El lote abierto donde caen las líneas nuevas; si no hay, se abre uno. */
-    public static function actual(): self
+    /** El lote abierto del tipo donde caen las líneas nuevas; si no hay, se abre uno. */
+    public static function actual(string $tipo = self::CLIENTES): self
     {
-        try {
-            return self::firstOrCreate(['estado' => 'abierto']);
-        } catch (UniqueConstraintViolationException) {
-            // Otro vendedor lo abrió al mismo tiempo.
-            return self::where('estado', 'abierto')->firstOrFail();
+        $abierto = self::abiertoDe($tipo);
+        if ($abierto) {
+            return $abierto;
         }
+
+        try {
+            return self::create([
+                'tipo' => $tipo,
+                'estado' => 'abierto',
+                'numero' => (int) self::where('tipo', $tipo)->max('numero') + 1,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // Otro usuario lo abrió al mismo tiempo.
+            return self::abiertoDe($tipo) ?? throw new \RuntimeException('No se pudo abrir el pedido.');
+        }
+    }
+
+    public static function abiertoDe(string $tipo): ?self
+    {
+        return self::where('tipo', $tipo)->where('estado', 'abierto')->first();
     }
 
     public function abierto(): bool
     {
         return $this->estado === 'abierto';
+    }
+
+    /** «Pedido #13» o «Inventario #4». */
+    public function nombre(): string
+    {
+        return ($this->tipo === self::INVENTARIO ? 'Inventario' : 'Pedido').' #'.$this->numero;
     }
 
     public function items(): HasMany

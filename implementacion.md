@@ -17,7 +17,7 @@
 - `pagos`: anticipo (el primero) y abonos; saldo = total − pagado.
 - `pedido_items`: pedido, producto/código, descripción, cantidad, precio venta, estado,
   fecha aprox. de ingreso, lote_id, historial.
-- `lotes` (pedido consolidado al proveedor): número, estado abierto/cerrado, cerrado_por, cerrado_en.
+- `lotes` (pedido consolidado al proveedor): tipo clientes|inventario, número por tipo, estado abierto/cerrado, cerrado_por, cerrado_en. Un abierto por tipo.
 - Estados de línea: pendiente → enviado → recibido → entregado; o no_disponible (con fecha aprox.)
   → de vuelta a pendiente/enviado; o descontinuado. Anulado si se anula el pedido.
 
@@ -30,5 +30,5 @@
 6. [x] Fecha aprox. de ingreso → tarea diaria (08:00) + campanita + WhatsApp por usuario (whatsapp-web.js).
 7. [x] Exportar a Excel (pedidos + líneas; proveedor detalle + sumado, sin cliente ni precio). Historial ya estaba (paso 4).
 8. [x] Panel de inicio por rol, «Mi perfil» (teléfono y contraseña), DemoSeeder con estados variados.
-9. [x] Pedido de inventario (lista compartida, alerta de código repetido, mismo lote que los pedidos).
+9. [x] Pedido de inventario (lista compartida, alerta de código repetido, lote propio tipo «inventario» con numeración aparte).
 10. [ ] Despliegue en el VPS de Taller-sis (tras subirlo a KVM 2): compose de producción, dominio, HTTPS.

@@ -83,6 +83,24 @@ class Avisos
         return $resumen;
     }
 
+    /** El proveedor cerró el pedido de inventario: a cada vendedor, lo que él agregó. */
+    public function inventarioCerrado(Lote $lote, User $proveedor): array
+    {
+        $items = $lote->inventario()->with('creador')->whereIn('estado', \App\Models\InventarioItem::ACTIVOS)->get();
+        $resumen = ['enviados' => [], 'sin_telefono' => []];
+
+        foreach ($items->groupBy('creado_por') as $lineas) {
+            $vendedor = $lineas->first()->creador;
+            $texto = "*{$lote->nombre()} cerrado*\n\nIncluye lo que usted agregó:\n"
+                .$lineas->map(fn ($i) => "• {$i->codigo} {$i->descripcion} ({$i->cantidad} u.)")->implode("\n");
+
+            $vendedor->notify(new Aviso("{$lote->nombre()} cerrado", $lineas->count().' repuesto(s) suyos van en este pedido.', '/inventario'));
+            $this->aUsuario($proveedor, $vendedor, $texto, 'inventario_cerrado', null, $resumen);
+        }
+
+        return $resumen;
+    }
+
     /** El proveedor cerró el pedido consolidado: cada vendedor recibe la lista de lo suyo. */
     public function loteCerrado(Lote $lote, User $proveedor): array
     {
@@ -91,10 +109,10 @@ class Avisos
 
         foreach ($items->groupBy(fn (PedidoItem $i) => $i->pedido->vendedor_id) as $lineas) {
             $vendedor = $lineas->first()->pedido->vendedor;
-            $texto = "*Pedido #{$lote->id} cerrado*\n\nIncluye sus repuestos:\n"
+            $texto = "*{$lote->nombre()} cerrado*\n\nIncluye sus repuestos:\n"
                 .$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i))->implode("\n");
 
-            $vendedor->notify(new Aviso("Pedido #{$lote->id} cerrado", $lineas->count().' de sus líneas van en este pedido.', '/pedidos'));
+            $vendedor->notify(new Aviso("{$lote->nombre()} cerrado", $lineas->count().' de sus líneas van en este pedido.', '/pedidos'));
             $this->aUsuario($proveedor, $vendedor, $texto, 'lote_cerrado', null, $resumen);
         }
 

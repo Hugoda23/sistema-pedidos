@@ -29,7 +29,7 @@ class ProveedorController extends Controller
     public function items(Request $request): JsonResponse
     {
         $items = $this->filtrar($request)
-            ->with(['pedido:id,numero,vendedor_id', 'pedido.vendedor:id,name'])
+            ->with(['pedido:id,numero,vendedor_id', 'pedido.vendedor:id,name', 'lote:id,numero'])
             ->orderByRaw("CASE WHEN estado = 'no_disponible' AND fecha_ingreso <= CURRENT_DATE THEN 0 ELSE 1 END")
             ->orderBy('id')
             ->paginate(min((int) $request->query('por_pagina', 50), 200));
@@ -52,7 +52,7 @@ class ProveedorController extends Controller
     /** Lo mismo que se ve en pantalla, en Excel: detalle y suma por código. Sin clientes ni precios. */
     public function exportar(Request $request): StreamedResponse
     {
-        $items = $this->filtrar($request)->with(['pedido:id,numero,vendedor_id', 'pedido.vendedor:id,name'])->orderBy('id')->get();
+        $items = $this->filtrar($request)->with(['pedido:id,numero,vendedor_id', 'pedido.vendedor:id,name', 'lote:id,numero'])->orderBy('id')->get();
         $consolidado = $this->filtrar($request)
             ->selectRaw('codigo, MIN(descripcion) AS descripcion, SUM(cantidad) AS cantidad, COUNT(*) AS lineas')
             ->groupBy('codigo')->orderBy('codigo')->get();
@@ -61,7 +61,7 @@ class ProveedorController extends Controller
             ->hoja('Repuestos solicitados', ['Código', 'Descripción', 'Cantidad', 'Vendedor', 'Pedido', 'Pedido al proveedor', 'Solicitado', 'Estado', 'Ingreso aprox.', 'Nota'],
                 $items->map(fn (PedidoItem $i) => [
                     $i->codigo, $i->descripcion, $i->cantidad, $i->pedido->vendedor->name, $i->pedido->numero,
-                    $i->lote_id ? "#{$i->lote_id}" : '', FechaExcel::PHPToExcel($i->created_at), $i->estado->etiqueta(),
+                    $i->lote ? "#{$i->lote->numero}" : '', FechaExcel::PHPToExcel($i->created_at), $i->estado->etiqueta(),
                     $i->fecha_ingreso ? FechaExcel::PHPToExcel($i->fecha_ingreso) : null, $i->nota_proveedor,
                 ]), [6 => Excel::FECHA_HORA, 8 => Excel::FECHA])
             ->hoja('Sumado por código', ['Código', 'Descripción', 'Unidades', 'Líneas'],
@@ -72,12 +72,11 @@ class ProveedorController extends Controller
     public function lotes(): JsonResponse
     {
         $lotes = Lote::query()
+            ->where('tipo', Lote::CLIENTES)
             ->with('cerradoPor:id,name')
             ->withCount([
                 'items',
                 'items as por_atender' => fn ($q) => $q->whereIn('estado', self::POR_ATENDER),
-                'inventario',
-                'inventario as inventario_por_atender' => fn ($q) => $q->whereIn('estado', self::POR_ATENDER),
             ])
             ->withSum('items as unidades', 'cantidad')
             ->orderByRaw("CASE WHEN estado = 'abierto' THEN 0 ELSE 1 END")
@@ -87,6 +86,7 @@ class ProveedorController extends Controller
 
         return response()->json($lotes->map(fn (Lote $l) => [
             'id' => $l->id,
+            'numero' => $l->numero,
             'estado' => $l->estado,
             'abierto_en' => $l->created_at->toIso8601String(),
             'cerrado_en' => $l->cerrado_en?->toIso8601String(),
@@ -94,17 +94,15 @@ class ProveedorController extends Controller
             'lineas' => $l->items_count,
             'unidades' => (int) $l->unidades,
             'por_atender' => $l->por_atender,
-            'inventario' => $l->inventario_count,
-            'inventario_por_atender' => $l->inventario_por_atender,
         ]));
     }
 
-    /** El proveedor cierra el pedido consolidado: lo nuevo cae en el siguiente. */
+    /** El proveedor cierra el pedido de clientes (el de inventario se cierra aparte). */
     public function cerrarLote(Request $request, Avisos $avisos): JsonResponse
     {
-        $lote = Lote::where('estado', 'abierto')->first();
+        $lote = Lote::abiertoDe(Lote::CLIENTES);
 
-        if (! $lote || (! $lote->items()->exists() && ! $lote->inventario()->exists())) {
+        if (! $lote || ! $lote->items()->exists()) {
             throw ValidationException::withMessages(['lote' => 'No hay repuestos solicitados en el pedido abierto.']);
         }
 
@@ -112,8 +110,8 @@ class ProveedorController extends Controller
 
         return response()->json([
             'id' => $lote->id,
+            'numero' => $lote->numero,
             'lineas' => $lote->items()->count(),
-            'inventario' => $lote->inventario()->count(),
             'whatsapp' => $avisos->loteCerrado($lote, $request->user()) + $this->vinculado($request),
         ]);
     }
@@ -199,6 +197,7 @@ class ProveedorController extends Controller
             'revisar_ingreso' => $i->estado === EstadoItem::NoDisponible && $i->fecha_ingreso?->lte(today()),
             'nota_proveedor' => $i->nota_proveedor,
             'lote_id' => $i->lote_id,
+            'lote_numero' => $i->lote?->numero,
             'acciones' => array_map(fn (EstadoItem $e) => $e->value, $i->estado->siguientesProveedor()),
         ];
     }

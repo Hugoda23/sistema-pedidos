@@ -346,7 +346,7 @@ class PedidoController extends Controller
                 'estado' => $i->estado->value,
                 'fecha_ingreso' => $i->fecha_ingreso?->format('Y-m-d'),
                 'nota_proveedor' => $i->nota_proveedor,
-                'lote' => $i->lote ? ['id' => $i->lote->id, 'estado' => $i->lote->estado] : null,
+                'lote' => $i->lote ? ['id' => $i->lote->id, 'numero' => $i->lote->numero, 'estado' => $i->lote->estado] : null,
                 'editable' => $i->editable(),
                 'acciones' => array_map(fn (EstadoItem $e) => $e->value, $i->estado->siguientesVendedor()),
                 'historial' => $i->historial->map(fn ($h) => [

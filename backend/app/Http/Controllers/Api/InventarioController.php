@@ -70,7 +70,7 @@ class InventarioController extends Controller
                 'descripcion' => trim($datos['descripcion']),
                 'cantidad' => $datos['cantidad'],
                 'estado' => EstadoItem::Pendiente,
-                'lote_id' => Lote::actual()->id,
+                'lote_id' => Lote::actual(Lote::INVENTARIO)->id,
                 'creado_por' => $user->id,
             ]);
             $item->registrar($user, 'agregado', $datos['cantidad'], $existente ? "Adicional a lo ya pedido (#{$existente->id})" : null);
@@ -182,14 +182,14 @@ class InventarioController extends Controller
 
     public function exportar(Request $request): StreamedResponse
     {
-        $items = $this->filtrar($request)->with(['creador:id,name', 'lote:id'])->orderBy('codigo')->get();
+        $items = $this->filtrar($request)->with(['creador:id,name', 'lote:id,numero'])->orderBy('codigo')->get();
         $f = fn ($d) => $d ? FechaExcel::PHPToExcel($d) : null;
 
         return (new Excel)
             ->hoja('Pedido de inventario', ['Código', 'Descripción', 'Cantidad', 'Agregado por', 'Fecha', 'Pedido al proveedor', 'Estado', 'Ingreso aprox.', 'Nota del proveedor'],
                 $items->map(fn (InventarioItem $i) => [
                     $i->codigo, $i->descripcion, $i->cantidad, $i->creador->name, $f($i->created_at),
-                    $i->lote_id ? "#{$i->lote_id}" : '', $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
+                    $i->lote ? "#{$i->lote->numero}" : '', $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
                 ]), [4 => Excel::FECHA_HORA, 7 => Excel::FECHA])
             ->descargar('inventario-'.now()->format('Y-m-d').'.xlsx');
     }
@@ -198,13 +198,12 @@ class InventarioController extends Controller
     public function pedidos(): JsonResponse
     {
         $lotes = Lote::query()
-            ->where(fn ($q) => $q->where('estado', 'abierto')->orWhereHas('inventario'))
+            ->where('tipo', Lote::INVENTARIO)
             ->with('cerradoPor:id,name')
             ->withCount([
                 'inventario as repuestos' => fn ($q) => $q->where('estado', '!=', 'anulado'),
                 'inventario as enviados' => fn ($q) => $q->where('estado', 'enviado'),
                 'inventario as pendientes' => fn ($q) => $q->whereIn('estado', InventarioItem::ACTIVOS),
-                'items as lineas_clientes' => fn ($q) => $q->where('estado', '!=', 'anulado'),
             ])
             ->withSum(['inventario as unidades' => fn ($q) => $q->where('estado', '!=', 'anulado')], 'cantidad')
             ->orderByRaw("CASE WHEN estado = 'abierto' THEN 0 ELSE 1 END")
@@ -214,6 +213,7 @@ class InventarioController extends Controller
 
         return response()->json($lotes->map(fn (Lote $l) => [
             'id' => $l->id,
+            'numero' => $l->numero,
             'abierto' => $l->abierto(),
             'abierto_en' => $l->created_at->toIso8601String(),
             'cerrado_en' => $l->cerrado_en?->toIso8601String(),
@@ -222,13 +222,31 @@ class InventarioController extends Controller
             'unidades' => (int) $l->unidades,
             'enviados' => $l->enviados,
             'pendientes' => $l->pendientes,
-            'lineas_clientes' => $l->lineas_clientes,
         ]));
+    }
+
+    /** El proveedor cierra el pedido de inventario abierto; lo que se agregue después abre el siguiente. */
+    public function cerrar(Request $request, Avisos $avisos): JsonResponse
+    {
+        $lote = Lote::abiertoDe(Lote::INVENTARIO);
+        if (! $lote || ! $lote->inventario()->where('estado', '!=', 'anulado')->exists()) {
+            throw ValidationException::withMessages(['lote' => 'No hay repuestos en el pedido de inventario abierto.']);
+        }
+
+        $lote->update(['estado' => 'cerrado', 'cerrado_por' => $request->user()->id, 'cerrado_en' => now()]);
+
+        return response()->json([
+            'id' => $lote->id,
+            'numero' => $lote->numero,
+            'repuestos' => $lote->inventario()->where('estado', '!=', 'anulado')->count(),
+            'whatsapp' => $avisos->inventarioCerrado($lote, $request->user()),
+        ]);
     }
 
     /** Reporte de un pedido: sus repuestos y cada movimiento. HTML para la vista previa, o PDF. */
     public function reporte(Request $request, Lote $lote)
     {
+        abort_unless($lote->tipo === Lote::INVENTARIO, 404);
         $items = $lote->inventario()->with(['creador:id,name', 'historial.user:id,name'])->orderBy('codigo')->get();
         $movimientos = $items->flatMap(fn (InventarioItem $i) => $i->historial->map(fn ($h) => ['item' => $i, 'h' => $h]))
             ->sortBy(fn ($m) => [$m['h']->created_at->timestamp, $m['h']->id])->values();
@@ -236,7 +254,7 @@ class InventarioController extends Controller
 
         if ($request->query('formato') === 'pdf') {
             return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($vista->render())->setPaper('letter')
-                ->download("inventario-pedido-{$lote->id}.pdf");
+                ->download("inventario-{$lote->numero}.pdf");
         }
 
         return response($vista->render())->header('Content-Type', 'text/html; charset=utf-8');
@@ -284,7 +302,7 @@ class InventarioController extends Controller
             'nota_proveedor' => $i->nota_proveedor,
             'atendido_por' => $i->atendidoPor?->name,
             'atendido_en' => $i->atendido_en?->toIso8601String(),
-            'lote' => $i->lote ? ['id' => $i->lote->id, 'abierto' => $i->lote->abierto()] : null,
+            'lote' => $i->lote ? ['id' => $i->lote->id, 'numero' => $i->lote->numero, 'abierto' => $i->lote->abierto()] : null,
             'editable' => $i->editable() && $user->can('inventario.gestionar'),
             'acciones' => $user->can('inventario.atender')
                 ? array_map(fn (EstadoItem $e) => $e->value, $i->estado->siguientesProveedor()) : [],

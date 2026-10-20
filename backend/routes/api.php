@@ -72,6 +72,7 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
         Route::get('/exportar', [InventarioController::class, 'exportar']);
         Route::get('/pedidos', [InventarioController::class, 'pedidos']);
         Route::get('/pedidos/{lote}/reporte', [InventarioController::class, 'reporte']);
+        Route::post('/pedidos/cerrar', [InventarioController::class, 'cerrar'])->middleware('permission:proveedor.cerrar_lote');
         Route::post('/', [InventarioController::class, 'store'])->middleware('permission:inventario.gestionar');
         Route::put('/{item}', [InventarioController::class, 'update'])->middleware('permission:inventario.gestionar');
         Route::delete('/{item}', [InventarioController::class, 'destroy'])->middleware('permission:inventario.gestionar');

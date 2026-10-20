@@ -37,7 +37,7 @@ export default function Inventario() {
   const [aviso, setAviso] = useState({ tipo: 'ok', texto: '' })
   const [whatsapp, setWhatsapp] = useState(null)
   const [pedidos, setPedidos] = useState([])
-  const [reporte, setReporte] = useState(null) // id del pedido
+  const [reporte, setReporte] = useState(null) // { id, numero } del pedido
 
   const cargarPedidos = useCallback(() => api('/inventario/pedidos').then(setPedidos).catch(() => {}), [])
   useEffect(() => { cargarPedidos() }, [cargarPedidos])
@@ -86,12 +86,11 @@ export default function Inventario() {
 
   /** El proveedor cierra el pedido consolidado: lo que se agregue después cae en el siguiente. */
   const cerrarPedido = async () => {
-    const cli = abierto.lineas_clientes ? ` y ${abierto.lineas_clientes} línea(s) de pedidos de clientes` : ''
-    if (!confirm(`¿Cerrar el pedido #${abierto.id} con ${abierto.repuestos} repuesto(s) de inventario${cli}? Lo que se agregue después irá al siguiente pedido.`)) return
+    if (!confirm(`¿Cerrar el pedido de inventario #${abierto.numero} con ${abierto.repuestos} repuesto(s)? Lo que se agregue después irá al siguiente. Los pedidos de clientes no se cierran.`)) return
     setAviso({ texto: '' })
     try {
-      const r = await api('/proveedor/lotes/cerrar', { method: 'POST' })
-      setAviso({ tipo: 'ok', texto: `Pedido #${r.id} cerrado.` })
+      const r = await api('/inventario/pedidos/cerrar', { method: 'POST' })
+      setAviso({ tipo: 'ok', texto: `Pedido de inventario #${r.numero} cerrado.` })
       setWhatsapp(r.whatsapp)
       recargar()
       cargarPedidos()
@@ -124,7 +123,7 @@ export default function Inventario() {
       cell: ({ row: { original: f } }) => (
         <div>
           <EstadoItem estado={f.estado} />
-          {f.lote && <div className="text-xs text-slate-500">Pedido #{f.lote.id}{f.lote.abierto ? ' (abierto)' : ''}</div>}
+          {f.lote && <div className="text-xs text-slate-500">Inventario #{f.lote.numero}{f.lote.abierto ? ' (abierto)' : ''}</div>}
           {f.fecha_ingreso && (
             <div className={`text-xs ${f.revisar_ingreso ? 'font-semibold text-red-600' : 'text-amber-700'}`}>
               {f.revisar_ingreso && <ExclamationTriangleIcon className="mr-0.5 inline h-3.5 w-3.5 align-[-2px]" />}
@@ -157,19 +156,19 @@ export default function Inventario() {
         <span className="flex flex-wrap items-center gap-3">
           Pedido de inventario
           {abierto
-            ? <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">Pedido #{abierto.id} · abierto desde {fecha(abierto.abierto_en)}</span>
+            ? <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">Inventario #{abierto.numero} · abierto desde {fecha(abierto.abierto_en)}</span>
             : <span className="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-600">Sin pedido abierto</span>}
         </span>
       }>
-        {cierra && abierto && abierto.repuestos + abierto.lineas_clientes > 0 && (
-          <Boton icono={LockClosedIcon} onClick={cerrarPedido}>Cerrar pedido #{abierto.id}</Boton>
+        {cierra && abierto && abierto.repuestos > 0 && (
+          <Boton icono={LockClosedIcon} onClick={cerrarPedido}>Cerrar inventario #{abierto.numero}</Boton>
         )}
         <BotonExcel ruta="/inventario/exportar" params={{ estado: filtros.estado, q: filtros.q }} nombre="inventario.xlsx"
           onError={(m) => setAviso({ tipo: 'error', texto: m })} />
       </Encabezado>
       <p className="-mt-2 mb-4 text-sm text-slate-500">
         Repuestos que faltan en la tienda. Lo ven todos los vendedores y el proveedor; lo que el proveedor envía sale de la lista.
-        Se puede corregir o quitar mientras el proveedor no cierre el pedido.
+        Se puede corregir o quitar mientras el proveedor no cierre el pedido de inventario (va aparte del de clientes).
       </p>
 
       {gestiona && (
@@ -219,8 +218,8 @@ export default function Inventario() {
       </div>}
 
       {reporte && (
-        <VistaPreviaDocumento titulo={`Reporte de inventario · Pedido #${reporte}`} ruta={`/inventario/pedidos/${reporte}/reporte`}
-          nombrePdf={`inventario-pedido-${reporte}.pdf`} onCerrar={() => setReporte(null)} />
+        <VistaPreviaDocumento titulo={`Reporte · Inventario #${reporte.numero}`} ruta={`/inventario/pedidos/${reporte.id}/reporte`}
+          nombrePdf={`inventario-${reporte.numero}.pdf`} onCerrar={() => setReporte(null)} />
       )}
 
       {duplicado && (
@@ -258,7 +257,7 @@ export default function Inventario() {
 /** Pedidos al proveedor que llevaron inventario, cada uno con su reporte de movimientos. */
 function TablaPedidos({ pedidos, onReporte }) {
   const columnas = useMemo(() => [
-    { header: 'Pedido', accessorKey: 'id', cell: (c) => <span className="font-semibold">#{c.getValue()}</span> },
+    { header: 'Inventario', accessorKey: 'numero', cell: (c) => <span className="font-semibold">#{c.getValue()}</span> },
     { header: 'Abierto', accessorKey: 'abierto_en', cell: (c) => fechaHora(c.getValue()) },
     {
       header: 'Cerrado', id: 'cerrado',
@@ -273,7 +272,7 @@ function TablaPedidos({ pedidos, onReporte }) {
     {
       id: 'reporte', header: '',
       cell: ({ row: { original: p } }) => (
-        <Boton variante="secundario" icono={DocumentTextIcon} onClick={() => onReporte(p.id)}>Reporte</Boton>
+        <Boton variante="secundario" icono={DocumentTextIcon} onClick={() => onReporte({ id: p.id, numero: p.numero })}>Reporte</Boton>
       ),
     },
   ], [onReporte])

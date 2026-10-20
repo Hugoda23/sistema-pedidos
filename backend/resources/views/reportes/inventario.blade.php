@@ -8,7 +8,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Inventario · Pedido #{{ $lote->id }}</title>
+<title>{{ $lote->nombre() }}</title>
 <style>
     @page { size: letter; margin: 14mm 14mm 16mm; }
     * { box-sizing: border-box; }
@@ -46,8 +46,8 @@
                 <div class="gris">Reporte de pedido de inventario</div>
             </td>
             <td class="titulo">
-                <div class="doc">Pedido al proveedor</div>
-                <div class="num">#{{ $lote->id }}</div>
+                <div class="doc">Pedido de inventario</div>
+                <div class="num">#{{ $lote->numero }}</div>
                 <div class="gris">Abierto el {{ $lote->created_at->format('d/m/Y H:i') }}</div>
                 <div class="gris">
                     @if ($lote->abierto()) Sigue abierto

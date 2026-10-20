@@ -45,7 +45,7 @@ class PedidoService
     public function agregarItem(Pedido $pedido, array $item, User $user, string $campo = 'codigo'): PedidoItem
     {
         $linea = $pedido->items()->create([
-            'lote_id' => Lote::actual()->id,
+            'lote_id' => Lote::actual(Lote::CLIENTES)->id,
             'codigo' => PedidoItem::normalizarCodigo($item['codigo']),
             'descripcion' => trim($item['descripcion']),
             'cantidad' => $item['cantidad'],

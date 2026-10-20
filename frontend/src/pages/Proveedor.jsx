@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { fecha, fechaHora } from '../lib/formato'
@@ -9,6 +9,7 @@ import { EstadoItem } from '../components/EstadoBadge'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
+import { LockClosedIcon } from '@heroicons/react/24/outline'
 
 const PESTANAS = [
   ['por_atender', 'Por atender'],
@@ -47,6 +48,19 @@ export default function Proveedor() {
   const set = (k) => (e) => setFiltros({ ...filtros, [k]: e.target.value })
 
   const refrescar = () => { recargar(); cargarLotes() }
+
+  /** Cierra solo el pedido de clientes; el de inventario se cierra en su pantalla. */
+  const cerrarLote = async () => {
+    if (!confirm(`¿Cerrar el pedido #${abierto.numero} con ${abierto.lineas} línea(s) de clientes? Lo que pidan los vendedores después irá al siguiente pedido.`)) return
+    try {
+      const r = await api('/proveedor/lotes/cerrar', { method: 'POST' })
+      setAviso({ tipo: 'ok', texto: `Pedido #${r.numero} cerrado.` })
+      setWhatsapp(r.whatsapp)
+      refrescar()
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: e.message })
+    }
+  }
 
   const cambiar = async (estado, ids, extra = {}) => {
     setAviso({ texto: '' })
@@ -118,19 +132,18 @@ export default function Proveedor() {
       {abierto && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
           <div className="text-sm">
-            <div className="font-semibold text-blue-900">Pedido abierto #{abierto.id}</div>
-            <div className="text-blue-800">Desde {fechaHora(abierto.abierto_en)} · {abierto.lineas} línea(s) de clientes · {abierto.unidades} unidad(es) · {abierto.por_atender} por atender
-              {abierto.inventario > 0 && <> · <Link to="/inventario" className="font-medium underline">{abierto.inventario} de inventario</Link></>}</div>
+            <div className="font-semibold text-blue-900">Pedido de clientes #{abierto.numero} abierto</div>
+            <div className="text-blue-800">Desde {fechaHora(abierto.abierto_en)} · {abierto.lineas} línea(s) · {abierto.unidades} unidad(es) · {abierto.por_atender} por atender</div>
           </div>
           <div className="flex gap-2">
             <Boton variante="secundario" onClick={() => { setFiltros({ ...filtros, lote_id: String(abierto.id), estado: 'todos' }); setVista('consolidado') }}>Ver consolidado</Boton>
-
+            {puede('proveedor.cerrar_lote') && abierto.lineas > 0 && <Boton icono={LockClosedIcon} onClick={cerrarLote}>Cerrar pedido #{abierto.numero}</Boton>}
           </div>
         </div>
       )}
 
       {lotes.length > 0 && !abierto && (
-        <p className="mb-4 rounded-xl border bg-white p-4 text-sm text-slate-600">No hay pedido abierto. Lo próximo que soliciten los vendedores abrirá uno nuevo.</p>
+        <p className="mb-4 rounded-xl border bg-white p-4 text-sm text-slate-600">No hay pedido de clientes abierto. Lo próximo que soliciten los vendedores abrirá uno nuevo.</p>
       )}
 
       <div className="mb-3 flex flex-wrap gap-1 border-b">
@@ -147,7 +160,7 @@ export default function Proveedor() {
         <Select value={filtros.lote_id} onChange={set('lote_id')}>
           <option value="">Todos los pedidos</option>
           {lotes.map((l) => (
-            <option key={l.id} value={l.id}>#{l.id} · {l.estado === 'abierto' ? 'abierto' : `cerrado ${fecha(l.cerrado_en)}`} · {l.lineas} líneas</option>
+            <option key={l.id} value={l.id}>#{l.numero} · {l.estado === 'abierto' ? 'abierto' : `cerrado ${fecha(l.cerrado_en)}`} · {l.lineas} líneas</option>
           ))}
         </Select>
         <Select value={vista} onChange={(e) => setVista(e.target.value)}>

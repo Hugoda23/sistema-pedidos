@@ -109,8 +109,14 @@ export default function Inicio() {
           </div>
           {p.abierto && (
             <p className="rounded-xl border bg-white px-4 py-3 text-sm text-slate-600">
-              Pedido abierto <b>#{p.abierto.id}</b> desde {fechaHora(p.abierto.desde)}: {p.abierto.lineas} línea(s), {p.abierto.unidades} unidad(es).{' '}
+              Pedido de clientes <b>#{p.abierto.numero}</b> abierto desde {fechaHora(p.abierto.desde)}: {p.abierto.lineas} línea(s), {p.abierto.unidades} unidad(es).{' '}
               <Link to="/proveedor" className="text-blue-600 hover:underline">Ver repuestos</Link>
+            </p>
+          )}
+          {p.inventario_abierto && (
+            <p className="rounded-xl border bg-white px-4 py-3 text-sm text-slate-600">
+              Pedido de inventario <b>#{p.inventario_abierto.numero}</b> abierto: {p.inventario_abierto.repuestos} repuesto(s) por atender.{' '}
+              <Link to="/inventario" className="text-blue-600 hover:underline">Ver inventario</Link>
             </p>
           )}
           <Lista titulo="Fechas de ingreso cumplidas" vacio="No hay fechas cumplidas." a="/proveedor?estado=revisar" textoA="Revisar">

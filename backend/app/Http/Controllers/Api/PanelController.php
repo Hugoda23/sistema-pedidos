@@ -44,14 +44,16 @@ class PanelController extends Controller
         }
 
         if ($user->can('proveedor.ver')) {
-            $abierto = Lote::where('estado', 'abierto')->withCount('items')->withSum('items as unidades', 'cantidad')->first();
+            $abierto = Lote::where('tipo', Lote::CLIENTES)->where('estado', 'abierto')->withCount('items')->withSum('items as unidades', 'cantidad')->first();
+            $inventario = Lote::abiertoDe(Lote::INVENTARIO);
 
             $panel['proveedor'] = [
                 'por_atender' => PedidoItem::where('estado', 'pendiente')->count(),
                 'sin_existencia' => PedidoItem::where('estado', 'no_disponible')->count(),
                 'revisar' => PedidoItem::where('estado', 'no_disponible')->whereDate('fecha_ingreso', '<=', today())->count(),
                 'enviados_semana' => PedidoItemHistorial::where('estado_nuevo', 'enviado')->where('created_at', '>=', now()->subDays(7))->count(),
-                'abierto' => $abierto ? ['id' => $abierto->id, 'lineas' => $abierto->items_count, 'unidades' => (int) $abierto->unidades, 'desde' => $abierto->created_at->toIso8601String()] : null,
+                'inventario_abierto' => $inventario ? ['numero' => $inventario->numero, 'repuestos' => $inventario->inventario()->whereIn('estado', \App\Models\InventarioItem::ACTIVOS)->count()] : null,
+                'abierto' => $abierto ? ['id' => $abierto->id, 'numero' => $abierto->numero, 'lineas' => $abierto->items_count, 'unidades' => (int) $abierto->unidades, 'desde' => $abierto->created_at->toIso8601String()] : null,
                 'lista_revisar' => PedidoItem::with('pedido.vendedor:id,name')->where('estado', 'no_disponible')
                     ->whereDate('fecha_ingreso', '<=', today())->orderBy('fecha_ingreso')->limit(8)->get()
                     ->map(fn (PedidoItem $i) => [

@@ -194,7 +194,7 @@ class DemoSeeder extends Seeder
 
     private function cerrarLote(Carbon $cuando): void
     {
-        $lote = Lote::where('estado', 'abierto')->first();
+        $lote = Lote::abiertoDe(Lote::CLIENTES);
         if (! $lote || ! $lote->items()->exists()) {
             return;
         }
@@ -303,7 +303,7 @@ class DemoSeeder extends Seeder
         }
 
         // Pedido de inventario: lo que falta en la tienda.
-        $lote = Lote::actual();
+        $lote = Lote::actual(Lote::INVENTARIO);
         $prov = $this->proveedor;
         $inventario = [
             [0, 'ACE-20W50-1L', 'Aceite 20W-50 4T (1 litro)', 24, null],

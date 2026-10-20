@@ -69,13 +69,13 @@ class InventarioTest extends TestCase
     public function test_si_el_proveedor_ya_cerro_el_pedido_lo_adicional_va_en_otra_linea(): void
     {
         $this->agregar($this->ana, 'FIL-1', 2)->assertCreated();
-        $this->actingAs($this->proveedor)->postJson('/api/proveedor/lotes/cerrar')->assertOk()->assertJsonPath('inventario', 1);
+        $this->actingAs($this->proveedor)->postJson('/api/inventario/pedidos/cerrar')->assertOk()->assertJsonPath('repuestos', 1)->assertJsonPath('numero', 1);
 
         $this->agregar($this->beto, 'FIL-1', 1)->assertStatus(409)->assertJsonPath('existente.en_pedido_abierto', false);
         $this->agregar($this->beto, 'FIL-1', 1, sumar: true)->assertCreated()->assertJsonPath('sumado', false)->assertJsonPath('cantidad', 1);
 
         $this->assertSame(2, InventarioItem::count());
-        $this->assertSame(2, Lote::count()); // la nueva línea cayó en el pedido nuevo
+        $this->assertSame([1, 2], Lote::where('tipo', 'inventario')->orderBy('numero')->pluck('numero')->all()); // cayó en Inventario #2
     }
 
     public function test_enviado_sale_de_la_lista_y_queda_en_atendidos(): void
@@ -134,23 +134,23 @@ class InventarioTest extends TestCase
         $this->agregar($this->beto, 'FIL-1', 3, sumar: true);
         $bujia = $this->agregar($this->beto, 'BUJ', 1)->json('id');
         $this->actingAs($this->beto)->deleteJson("/api/inventario/{$bujia}")->assertNoContent();
-        $this->actingAs($this->proveedor)->postJson('/api/proveedor/lotes/cerrar')->assertOk();
+        $this->actingAs($this->proveedor)->postJson('/api/inventario/pedidos/cerrar')->assertOk();
         $this->postJson('/api/inventario/estado', ['ids' => [$id], 'estado' => 'enviado'])->assertOk();
 
-        $lote = Lote::first();
+        $lote = Lote::where('tipo', 'inventario')->first();
         $this->getJson('/api/inventario/pedidos')->assertOk()
-            ->assertJsonPath('0.id', $lote->id)->assertJsonPath('0.abierto', false)
+            ->assertJsonPath('0.id', $lote->id)->assertJsonPath('0.numero', 1)->assertJsonPath('0.abierto', false)
             ->assertJsonPath('0.cerrado_por', 'Prov')
             ->assertJsonPath('0.repuestos', 1)->assertJsonPath('0.unidades', 5)->assertJsonPath('0.enviados', 1);
 
         $html = $this->actingAs($this->ana)->get("/api/inventario/pedidos/{$lote->id}/reporte")->assertOk()->getContent();
-        foreach (["#{$lote->id}", 'Motorepuestos Mota', 'FIL-1', 'Ana (2), Beto (3)', 'Agregado', 'Sumó cantidad', 'Quitado', 'Enviado', 'Prov', 'Beto'] as $t) {
+        foreach (['Pedido de inventario', 'Motorepuestos Mota', 'FIL-1', 'Ana (2), Beto (3)', 'Agregado', 'Sumó cantidad', 'Quitado', 'Enviado', 'Prov', 'Beto'] as $t) {
             $this->assertStringContainsString($t, $html, "Falta «{$t}»");
         }
 
         $pdf = $this->get("/api/inventario/pedidos/{$lote->id}/reporte?formato=pdf")->assertOk();
         $this->assertStringStartsWith('%PDF', $pdf->getContent());
-        $this->assertStringContainsString("inventario-pedido-{$lote->id}.pdf", $pdf->headers->get('content-disposition'));
+        $this->assertStringContainsString('inventario-1.pdf', $pdf->headers->get('content-disposition'));
     }
 
     public function test_permisos(): void
@@ -164,13 +164,33 @@ class InventarioTest extends TestCase
             ->assertJsonPath('data.0.editable', false);
     }
 
-    public function test_cerrar_pedido_solo_con_inventario(): void
+    public function test_el_cierre_de_inventario_y_el_de_clientes_van_por_separado(): void
     {
         $this->agregar($this->ana, 'FIL-1', 2)->assertCreated();
+        $this->actingAs($this->ana)->postJson('/api/pedidos', [
+            'cliente_id' => \App\Models\Cliente::factory()->create()->id,
+            'items' => [['codigo' => 'CAD', 'descripcion' => 'Cadena', 'cantidad' => 1, 'precio' => 100]],
+        ])->assertCreated();
 
-        $this->actingAs($this->proveedor)->getJson('/api/proveedor/lotes')->assertJsonPath('0.inventario', 1)->assertJsonPath('0.lineas', 0);
-        $this->getJson('/api/inventario/pedidos')->assertJsonPath('0.repuestos', 1)->assertJsonPath('0.lineas_clientes', 0);
-        $this->postJson('/api/proveedor/lotes/cerrar')->assertOk();
+        // Dos pedidos abiertos, cada uno con su numeración.
+        $this->assertEqualsCanonicalizing(['clientes', 'inventario'], Lote::where('estado', 'abierto')->pluck('tipo')->all());
+        $this->actingAs($this->proveedor)->getJson('/api/proveedor/lotes')->assertJsonCount(1)->assertJsonPath('0.lineas', 1)->assertJsonPath('0.numero', 1);
+        $this->getJson('/api/inventario/pedidos')->assertJsonCount(1)->assertJsonPath('0.repuestos', 1);
+
+        // Cerrar el de inventario no toca el de clientes.
+        $this->postJson('/api/inventario/pedidos/cerrar')->assertOk()->assertJsonPath('whatsapp.enviados', ['Ana']);
+        $this->assertTrue(Lote::abiertoDe('clientes')->abierto());
+        $this->assertNull(Lote::abiertoDe('inventario'));
+        $this->postJson('/api/inventario/pedidos/cerrar')->assertStatus(422);
+
+        // Y al revés.
+        $this->agregar($this->beto, 'BUJ', 1)->assertCreated();
+        $this->actingAs($this->proveedor)->postJson('/api/proveedor/lotes/cerrar')->assertOk();
+        $this->assertNull(Lote::abiertoDe('clientes'));
+        $this->assertSame(2, Lote::abiertoDe('inventario')->numero);
+
+        // El vendedor no cierra.
+        $this->actingAs($this->ana)->postJson('/api/inventario/pedidos/cerrar')->assertForbidden();
     }
 
     public function test_exportar_excel(): void

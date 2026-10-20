@@ -43,9 +43,9 @@ docker compose exec app php artisan test
 Lista compartida de repuestos que faltan en la tienda (código, descripción, cantidad). La ven todos
 los vendedores y el proveedor. Si se agrega un código que ya está en la lista, el sistema avisa y
 pregunta si se suma la cantidad (si el proveedor ya cerró ese pedido, va como línea nueva en el
-siguiente). Va en el mismo pedido consolidado que los pedidos de clientes. El botón «Cerrar pedido #N»
-está solo aquí (proveedor y administrador) y cierra ambos; el siguiente pedido se abre solo con el
-primer repuesto que se agregue. Lo que el proveedor marca enviado o descontinuado sale de la lista (pestaña «Enviados»).
+siguiente). Tiene su **propio pedido al proveedor** («Inventario #N», numeración aparte), que se
+cierra con «Cerrar inventario #N» en esta pantalla; los pedidos de clientes («Pedido #N») se cierran
+aparte en «Repuestos solicitados». Cada uno se abre solo con el primer repuesto que se agregue. Lo que el proveedor marca enviado o descontinuado sale de la lista (pestaña «Enviados»).
 Junto al título se ve el número del pedido abierto; la pestaña «Pedidos» lista cada pedido con su
 **reporte** (vista previa, imprimir o PDF) con todos los movimientos: agregado, sumado, editado,
 quitado, enviado, no disponible y descontinuado, con usuario y hora. Quitar no borra: queda en el reporte.
