@@ -69,6 +69,30 @@ class ProveedorController extends Controller
             ->descargar('repuestos-'.now()->format('Y-m-d').'.xlsx');
     }
 
+    /**
+     * Pedidos de los vendedores que tienen repuestos para el proveedor, para el filtro.
+     * Sin cliente ni montos: número, vendedor y cuántas líneas tiene por atender.
+     */
+    public function pedidos(): JsonResponse
+    {
+        $pedidos = Pedido::query()
+            ->where('estado', '!=', 'anulado')
+            ->whereHas('items', fn ($q) => $q->where('estado', '!=', 'anulado'))
+            ->with('vendedor:id,name')
+            ->withCount(['items as por_atender' => fn ($q) => $q->whereIn('estado', self::POR_ATENDER)])
+            ->orderByDesc('id')
+            ->limit(300)
+            ->get(['id', 'numero', 'vendedor_id', 'created_at']);
+
+        return response()->json($pedidos->map(fn (Pedido $p) => [
+            'id' => $p->id,
+            'numero' => $p->numero,
+            'vendedor' => $p->vendedor->name,
+            'fecha' => $p->created_at->toIso8601String(),
+            'por_atender' => $p->por_atender,
+        ]));
+    }
+
     public function lotes(): JsonResponse
     {
         $lotes = Lote::query()
@@ -198,10 +222,12 @@ class ProveedorController extends Controller
             // Lo anulado por el vendedor no le interesa al proveedor.
             ->when($estado === 'todos', fn ($w) => $w->where('estado', '!=', 'anulado'))
             ->when($request->query('lote_id'), fn ($w, $l) => $w->where('lote_id', $l))
+            ->when($request->query('pedido_id'), fn ($w, $p) => $w->where('pedido_id', $p))
             ->when($request->query('vendedor_id'), fn ($w, $v) => $w->whereHas('pedido', fn ($p) => $p->where('vendedor_id', $v)))
             ->when($q !== '', fn ($w) => $w->where(fn ($w) => $w
                 ->where('codigo', 'like', '%'.PedidoItem::normalizarCodigo($q).'%')
-                ->orWhereRaw('descripcion ILIKE ?', ["%{$q}%"])));
+                ->orWhereRaw('descripcion ILIKE ?', ["%{$q}%"])
+                ->orWhereHas('pedido', fn ($p) => $p->whereRaw('numero ILIKE ?', ["%{$q}%"]))));
     }
 
     private static function datos(PedidoItem $i): array

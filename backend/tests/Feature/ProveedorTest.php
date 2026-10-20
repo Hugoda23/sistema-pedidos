@@ -184,4 +184,22 @@ class ProveedorTest extends TestCase
         $inv = \App\Models\Lote::actual('inventario');
         $this->actingAs($this->proveedor)->get("/api/proveedor/lotes/{$inv->id}/reporte")->assertNotFound();
     }
+
+    public function test_filtro_por_pedido_del_vendedor_y_busqueda_por_numero(): void
+    {
+        $otro = $this->pedir([['codigo' => 'BUJ', 'descripcion' => 'Bujía', 'cantidad' => 4, 'precio' => 30]]);
+
+        $lista = $this->actingAs($this->proveedor)->getJson('/api/proveedor/pedidos')->assertOk()->json();
+        $this->assertSame([$otro['numero'], $this->pedido['numero']], array_column($lista, 'numero'));
+        $this->assertSame('Ana', $lista[0]['vendedor']);
+        $this->assertSame(1, $lista[0]['por_atender']);
+        $this->assertArrayNotHasKey('cliente', $lista[0]);
+        $this->assertArrayNotHasKey('total', $lista[0]);
+
+        $this->getJson("/api/proveedor/items?pedido_id={$this->pedido['id']}")->assertJsonCount(2, 'data');
+        $this->getJson("/api/proveedor/items?pedido_id={$otro['id']}")->assertJsonCount(1, 'data')->assertJsonPath('data.0.codigo', 'BUJ');
+        $this->getJson('/api/proveedor/items?q='.$otro['numero'])->assertJsonCount(1, 'data');
+
+        $this->actingAs($this->vendedor)->getJson('/api/proveedor/pedidos')->assertForbidden();
+    }
 }

@@ -9,8 +9,6 @@ import { EstadoItem } from '../components/EstadoBadge'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
-import { DocumentTextIcon } from '@heroicons/react/24/outline'
-import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 
 const PESTANAS = [
   ['por_atender', 'Por atender'],
@@ -23,23 +21,22 @@ export default function Proveedor() {
   const { puede } = useAuth()
   const actualiza = puede('proveedor.actualizar')
   const [params] = useSearchParams()
-  const [filtros, setFiltros] = useState({ estado: params.get('estado') ?? 'por_atender', q: '', lote_id: '', por_pagina: 50 })
+  const [filtros, setFiltros] = useState({ estado: params.get('estado') ?? 'por_atender', q: '', pedido_id: '', por_pagina: 50 })
   useEffect(() => { if (params.get('estado')) setFiltros((f) => ({ ...f, estado: params.get('estado') })) }, [params])
   const { filas, pagina, cargando, error, setPage, recargar } = useListado('/proveedor/items', filtros)
-  const [lotes, setLotes] = useState([])
+  const [pedidos, setPedidos] = useState([]) // pedidos de los vendedores, para el filtro
   const [marcados, setMarcados] = useState(new Set())
   const [dialogo, setDialogo] = useState(null) // { estado, ids }
   const [aviso, setAviso] = useState({ tipo: 'ok', texto: '' })
   const [whatsapp, setWhatsapp] = useState(null) // { enviados, sin_telefono, vinculado }
-  const [reporte, setReporte] = useState(null) // { id, numero } del pedido a mostrar en PDF
 
-  const cargarLotes = useCallback(() => api('/proveedor/lotes').then(setLotes).catch(() => {}), [])
-  useEffect(() => { cargarLotes() }, [cargarLotes])
+  const cargarPedidos = useCallback(() => api('/proveedor/pedidos').then(setPedidos).catch(() => {}), [])
+  useEffect(() => { cargarPedidos() }, [cargarPedidos])
   useEffect(() => setMarcados(new Set()), [filas])
 
   const set = (k) => (e) => setFiltros({ ...filtros, [k]: e.target.value })
 
-  const refrescar = () => { recargar(); cargarLotes() }
+  const refrescar = () => { recargar(); cargarPedidos() }
 
 
   const cambiar = async (estado, ids, extra = {}) => {
@@ -100,7 +97,7 @@ export default function Proveedor() {
   return (
     <div>
       <Encabezado titulo="Repuestos solicitados">
-        <BotonExcel ruta="/proveedor/exportar" params={{ estado: filtros.estado, q: filtros.q, lote_id: filtros.lote_id }} nombre="repuestos.xlsx"
+        <BotonExcel ruta="/proveedor/exportar" params={{ estado: filtros.estado, q: filtros.q, pedido_id: filtros.pedido_id }} nombre="repuestos.xlsx"
           onError={(m) => setAviso({ tipo: 'error', texto: m })} />
       </Encabezado>
 
@@ -116,19 +113,13 @@ export default function Proveedor() {
       </div>
 
       <div className="mb-3 grid gap-2 sm:grid-cols-3">
-        <Input className="sm:col-span-2" placeholder="Buscar código o descripción" value={filtros.q} onChange={set('q')} />
-        <div className="flex gap-2">
-          <Select value={filtros.lote_id} onChange={set('lote_id')}>
-            <option value="">Todos los pedidos</option>
-            {lotes.map((l) => (
-              <option key={l.id} value={l.id}>#{l.numero} · {l.estado === 'abierto' ? 'abierto' : `cerrado ${fecha(l.cerrado_en)}`} · {l.lineas} líneas</option>
-            ))}
-          </Select>
-          {filtros.lote_id && (
-            <Boton variante="secundario" icono={DocumentTextIcon} title="Reporte del pedido en PDF"
-              onClick={() => setReporte({ id: filtros.lote_id, numero: lotes.find((l) => String(l.id) === String(filtros.lote_id))?.numero })}>Reporte</Boton>
-          )}
-        </div>
+        <Input className="sm:col-span-2" placeholder="Buscar código, descripción o número de pedido" value={filtros.q} onChange={set('q')} />
+        <Select value={filtros.pedido_id} onChange={set('pedido_id')} aria-label="Filtrar por pedido">
+          <option value="">Todos los pedidos</option>
+          {pedidos.map((p) => (
+            <option key={p.id} value={p.id}>{p.numero} · {p.vendedor}{p.por_atender ? ` · ${p.por_atender} por atender` : ''}</option>
+          ))}
+        </Select>
       </div>
 
 
@@ -147,10 +138,6 @@ export default function Proveedor() {
       <DataTable columnas={columnas} datos={filas} pagina={pagina} onPagina={setPage} cargando={cargando}
         vacio="No hay repuestos en esta vista." claseFila={(f) => (f.revisar_ingreso ? 'bg-red-50' : '')} />
 
-      {reporte && (
-        <VistaPreviaDocumento titulo={`Reporte · Pedido de clientes #${reporte.numero}`} ruta={`/proveedor/lotes/${reporte.id}/reporte`}
-          nombrePdf={`pedido-${reporte.numero}.pdf`} onCerrar={() => setReporte(null)} />
-      )}
       {dialogo && <DialogoEstado dialogo={dialogo} onCerrar={() => setDialogo(null)} onEnviar={cambiar} />}
     </div>
   )

@@ -83,6 +83,7 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
         Route::get('/items', [ProveedorController::class, 'items']);
         Route::get('/consolidado', [ProveedorController::class, 'consolidado']);
         Route::get('/exportar', [ProveedorController::class, 'exportar']);
+        Route::get('/pedidos', [ProveedorController::class, 'pedidos']);
         Route::get('/lotes', [ProveedorController::class, 'lotes']);
         Route::get('/lotes/{lote}/reporte', [ProveedorController::class, 'reporte']);
         Route::post('/items/estado', [ProveedorController::class, 'cambiarEstado'])->middleware('permission:proveedor.actualizar');
