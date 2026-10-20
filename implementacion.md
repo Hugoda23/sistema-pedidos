@@ -20,7 +20,7 @@
 
 ## Pasos (un commit por paso, pruebas en verde)
 1. [x] Docker + Laravel + React + login (Sanctum por token, roles base).
-2. [ ] Usuarios, roles y permisos (CRUD; spatie/permission).
+2. [x] Usuarios, roles y permisos (CRUD; spatie/permission).
 3. [ ] Clientes y productos.
 4. [ ] Pedidos de clientes con varias líneas y anticipo.
 5. [ ] Tabla del proveedor (sin cliente ni precio) + estados + cierre de lote.

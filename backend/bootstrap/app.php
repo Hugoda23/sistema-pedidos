@@ -20,6 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(fn (\Spatie\Permission\Exceptions\UnauthorizedException $e) => response()->json(
+            ['message' => 'No tienes permiso para esta acción.'], 403,
+        ));
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

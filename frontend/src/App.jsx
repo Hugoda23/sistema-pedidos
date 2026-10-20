@@ -4,6 +4,8 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Pendiente from './pages/Pendiente'
+import Usuarios from './pages/Usuarios'
+import Roles from './pages/Roles'
 
 function Protegida({ permiso, children }) {
   const { user, cargando, puede } = useAuth()
@@ -23,8 +25,8 @@ export default function App() {
         <Route path="clientes" element={<Protegida permiso="clientes.ver"><Pendiente titulo="Clientes" /></Protegida>} />
         <Route path="productos" element={<Protegida permiso="productos.ver"><Pendiente titulo="Productos" /></Protegida>} />
         <Route path="proveedor" element={<Protegida permiso="proveedor.ver"><Pendiente titulo="Repuestos solicitados" /></Protegida>} />
-        <Route path="usuarios" element={<Protegida permiso="usuarios.ver"><Pendiente titulo="Usuarios" /></Protegida>} />
-        <Route path="roles" element={<Protegida permiso="roles.ver"><Pendiente titulo="Roles y permisos" /></Protegida>} />
+        <Route path="usuarios" element={<Protegida permiso="usuarios.ver"><Usuarios /></Protegida>} />
+        <Route path="roles" element={<Protegida permiso="roles.ver"><Roles /></Protegida>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
