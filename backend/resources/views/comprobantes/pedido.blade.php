@@ -2,6 +2,7 @@
     use App\Enums\EstadoItem;
     $q = fn ($v) => 'Q '.number_format((float) $v, 2);
     $neg = config('negocio');
+    $logo = is_file($neg['logo']) ? 'data:image/jpeg;base64,'.base64_encode(file_get_contents($neg['logo'])) : null;
 @endphp
 <!doctype html>
 <html lang="es">
@@ -16,6 +17,8 @@
     @media screen { body { padding: 28px; } }
     table { width: 100%; border-collapse: collapse; }
     .enc td { vertical-align: top; }
+    .logo { width: 92px; padding-right: 10px; }
+    .logo img { width: 84px; height: 84px; }
     .negocio { font-size: 17px; font-weight: bold; color: #0f172a; }
     .gris { color: #64748b; }
     .titulo { text-align: right; }
@@ -50,6 +53,9 @@
 
     <table class="enc">
         <tr>
+            @if ($logo)
+                <td class="logo"><img src="{{ $logo }}" alt="{{ $neg['nombre'] }}"></td>
+            @endif
             <td>
                 <div class="negocio">{{ $neg['nombre'] }}</div>
                 @if ($neg['direccion'])<div class="gris">{{ $neg['direccion'] }}</div>@endif

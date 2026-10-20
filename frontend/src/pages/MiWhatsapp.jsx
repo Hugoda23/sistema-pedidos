@@ -6,6 +6,7 @@ import { fechaHora } from '../lib/formato'
 import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import { Alerta, Badge, Boton, Encabezado, Select } from '../components/ui'
+import { ArrowRightIcon, PaperClipIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 
 const ESTADO_SESION = {
   conectado: ['Vinculado', 'verde'],
@@ -81,7 +82,7 @@ export default function MiWhatsapp() {
         {['desconectado', 'sin_servicio'].includes(sesion?.status) && (
           <div className="mt-4 space-y-3 text-sm text-slate-600">
             <p>Vincula tu WhatsApp para que el sistema envíe los avisos desde tu número.</p>
-            <Boton onClick={() => accion('/whatsapp/conectar')} disabled={ocupado || sesion.status === 'sin_servicio'}>Vincular mi WhatsApp</Boton>
+            <Boton icono={QrCodeIcon} onClick={() => accion('/whatsapp/conectar')} disabled={ocupado || sesion.status === 'sin_servicio'}>Vincular mi WhatsApp</Boton>
           </div>
         )}
 
@@ -121,8 +122,8 @@ function Mensajes({ esAdmin }) {
     }
     return [
       { header: 'Fecha', accessorKey: 'fecha', cell: (c) => fechaHora(c.getValue()) },
-      { header: 'De → Para', id: 'dp', cell: ({ row: { original: m } }) => <span>{m.de} → {m.para ?? m.telefono}</span> },
-      { header: 'Mensaje', accessorKey: 'mensaje', cell: ({ row: { original: m } }) => <div className="max-w-md truncate whitespace-nowrap" title={m.mensaje}>{m.adjunto && <span title={m.adjunto}>📎 </span>}{m.mensaje}</div> },
+      { header: 'De / Para', id: 'dp', cell: ({ row: { original: m } }) => <span className="inline-flex items-center gap-1">{m.de} <ArrowRightIcon className="h-3.5 w-3.5 text-slate-400" /> {m.para ?? m.telefono}</span> },
+      { header: 'Mensaje', accessorKey: 'mensaje', cell: ({ row: { original: m } }) => <div className="max-w-md truncate whitespace-nowrap" title={m.mensaje}>{m.adjunto && <PaperClipIcon title={m.adjunto} className="mr-1 inline h-4 w-4 align-[-3px] text-slate-500" />}{m.mensaje}</div> },
       { header: 'Pedido', accessorKey: 'pedido', cell: (c) => c.getValue() ? <Link className="text-blue-600 hover:underline" to={`/pedidos/${c.getValue().id}`}>{c.getValue().numero}</Link> : '—' },
       {
         header: 'Estado', accessorKey: 'estado',

@@ -9,6 +9,7 @@ import DataTable from '../components/DataTable'
 import { EstadoPedido } from '../components/EstadoBadge'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Encabezado, Input, Select } from '../components/ui'
+import { PlusIcon } from '@heroicons/react/24/outline'
 
 export default function Pedidos() {
   const { puede } = useAuth()
@@ -42,7 +43,7 @@ export default function Pedidos() {
     <div>
       <Encabezado titulo="Pedidos">
         <BotonExcel ruta="/pedidos/exportar" params={filtros} nombre="pedidos.xlsx" onError={setErrorExcel} />
-        {puede('pedidos.gestionar') && <Boton onClick={() => navegar('/pedidos/nuevo')}>Nuevo pedido</Boton>}
+        {puede('pedidos.gestionar') && <Boton icono={PlusIcon} onClick={() => navegar('/pedidos/nuevo')}>Nuevo pedido</Boton>}
       </Encabezado>
 
       <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">

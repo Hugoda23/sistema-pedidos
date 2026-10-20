@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { fechaHora } from '../lib/formato'
+import { BellIcon } from '@heroicons/react/24/outline'
 
 export default function Campanita() {
   const [datos, setDatos] = useState({ sin_leer: 0, items: [] })
@@ -34,8 +35,8 @@ export default function Campanita() {
 
   return (
     <div ref={caja} className="relative">
-      <button onClick={() => setAbierta(!abierta)} className="relative rounded-lg p-1.5 text-xl hover:bg-slate-100" aria-label="Notificaciones">
-        🔔
+      <button onClick={() => setAbierta(!abierta)} className="relative rounded-lg p-1.5 text-slate-600 hover:bg-slate-100" aria-label="Notificaciones">
+        <BellIcon className="h-6 w-6" />
         {datos.sin_leer > 0 && (
           <span className="absolute -right-0.5 -top-0.5 min-w-5 rounded-full bg-red-600 px-1 text-center text-xs font-semibold text-white">{datos.sin_leer > 99 ? '99+' : datos.sin_leer}</span>
         )}

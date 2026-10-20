@@ -6,6 +6,7 @@ import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import FormModal from '../components/FormModal'
 import { Alerta, Badge, Boton, Campo, Encabezado, Input, Select } from '../components/ui'
+import { PlusIcon } from '@heroicons/react/24/outline'
 
 const VACIO = { codigo: '', nombre: '', precio_venta: '', descontinuado: false }
 
@@ -47,7 +48,7 @@ export default function Productos() {
   return (
     <div>
       <Encabezado titulo="Productos">
-        {gestiona && <Boton onClick={() => setForm(VACIO)}>Nuevo producto</Boton>}
+        {gestiona && <Boton icono={PlusIcon} onClick={() => setForm(VACIO)}>Nuevo producto</Boton>}
       </Encabezado>
       <p className="-mt-2 mb-3 text-sm text-slate-500">Los productos también se agregan solos al registrar un pedido con un código nuevo.</p>
       <div className="mb-3 grid gap-2 sm:grid-cols-3">

@@ -11,6 +11,7 @@ import { EstadoItem, EstadoPedido } from '../components/EstadoBadge'
 import WhatsappCliente from '../components/WhatsappCliente'
 import VistaPreviaComprobante from '../components/VistaPreviaComprobante'
 import { Alerta, Boton, Campo, Input, Modal, Textarea } from '../components/ui'
+import { ArrowLeftIcon, ChatBubbleLeftRightIcon, NoSymbolIcon, PlusIcon, PrinterIcon } from '@heroicons/react/24/outline'
 
 export default function PedidoDetalle() {
   const { id } = useParams()
@@ -70,14 +71,14 @@ export default function PedidoDetalle() {
     <div className="max-w-6xl space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link to="/pedidos" className="text-sm text-blue-600 hover:underline">← Pedidos</Link>
+          <Link to="/pedidos" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"><ArrowLeftIcon className="h-4 w-4" />Pedidos</Link>
           <h1 className="flex items-center gap-3 text-2xl font-bold text-slate-800">{p.numero} <EstadoPedido estado={p.estado} /></h1>
           <p className="text-sm text-slate-500">{fechaHora(p.fecha)} · Vendedor: {p.vendedor.name}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Boton variante="secundario" onClick={() => setComprobante(true)}>🖨 Imprimir / PDF</Boton>
-          {gestiona && !p.anulado && <Boton variante="secundario" onClick={() => setWa(true)}>💬 WhatsApp al cliente</Boton>}
-          {puede('pedidos.anular') && !p.anulado && <Boton variante="peligro" onClick={() => setAnular(true)}>Anular pedido</Boton>}
+          <Boton variante="secundario" icono={PrinterIcon} onClick={() => setComprobante(true)}>Imprimir / PDF</Boton>
+          {gestiona && !p.anulado && <Boton variante="secundario" icono={ChatBubbleLeftRightIcon} onClick={() => setWa(true)}>WhatsApp al cliente</Boton>}
+          {puede('pedidos.anular') && !p.anulado && <Boton variante="peligro" icono={NoSymbolIcon} onClick={() => setAnular(true)}>Anular pedido</Boton>}
         </div>
       </div>
 
@@ -125,7 +126,7 @@ export default function PedidoDetalle() {
                     {it.fecha_ingreso && <div className="mt-0.5 text-xs text-amber-700">Ingreso aprox. {fecha(it.fecha_ingreso)}</div>}
                     {it.nota_proveedor && <div className="mt-0.5 text-xs text-slate-500">Proveedor: {it.nota_proveedor}</div>}
                     {gestiona && it.estado === 'no_disponible' && (
-                      <button onClick={() => preguntar(it)} className="mt-1 block text-xs font-medium text-green-700 hover:underline">💬 Preguntar al proveedor</button>
+                      <button onClick={() => preguntar(it)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:underline"><ChatBubbleLeftRightIcon className="h-3.5 w-3.5" />Preguntar al proveedor</button>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-right">
@@ -224,7 +225,7 @@ function AgregarLinea({ pedidoId, accion }) {
       <Input className="sm:col-span-4" required placeholder="Descripción" value={l.descripcion} onChange={(e) => setL({ ...l, descripcion: e.target.value })} />
       <Input className="sm:col-span-1" type="number" min="1" required value={l.cantidad} onChange={(e) => setL({ ...l, cantidad: e.target.value })} aria-label="Cantidad" />
       <Input className="sm:col-span-2" type="number" min="0" step="0.01" required placeholder="Precio" value={l.precio} onChange={(e) => setL({ ...l, precio: e.target.value })} />
-      <Boton className="sm:col-span-2" variante="secundario">+ Agregar</Boton>
+      <Boton className="sm:col-span-2" variante="secundario" icono={PlusIcon}>Agregar</Boton>
     </form>
   )
 }

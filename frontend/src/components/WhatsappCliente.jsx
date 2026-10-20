@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { fecha, moneda } from '../lib/formato'
 import { Alerta, Boton, Campo, Modal, Select, Textarea } from './ui'
+import { ChatBubbleLeftRightIcon, PaperClipIcon } from '@heroicons/react/24/outline'
 
 const lista = (items) => items.map((i) => `• ${i.descripcion} (${i.cantidad})`).join('\n')
 
@@ -72,7 +73,7 @@ export default function WhatsappCliente({ pedido, onCerrar, plantilla }) {
           <Campo label="Mensaje"><Textarea rows={7} value={texto} onChange={(e) => setTexto(e.target.value)} /></Campo>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={adjuntar} onChange={(e) => setAdjuntar(e.target.checked)} />
-            📎 Adjuntar el comprobante del pedido en PDF
+            <PaperClipIcon className="h-4 w-4 text-slate-500" /> Adjuntar el comprobante del pedido en PDF
           </label>
           <Alerta tipo={estado.tipo}>{estado.msg}</Alerta>
           {sesion && !vinculado && (
@@ -83,7 +84,7 @@ export default function WhatsappCliente({ pedido, onCerrar, plantilla }) {
           <div className="flex justify-end gap-2">
             {estado.tipo === 'ok'
               ? <Boton onClick={onCerrar}>Listo</Boton>
-              : <Boton onClick={enviar} disabled={!vinculado || enviando || !texto.trim()}>{enviando ? 'Enviando…' : 'Enviar por WhatsApp'}</Boton>}
+              : <Boton icono={ChatBubbleLeftRightIcon} onClick={enviar} disabled={!vinculado || enviando || !texto.trim()}>{enviando ? 'Enviando…' : 'Enviar por WhatsApp'}</Boton>}
           </div>
         </div>
       )}

@@ -5,6 +5,7 @@ import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import FormModal from '../components/FormModal'
 import { Alerta, Boton, Campo, Encabezado, Input, Textarea } from '../components/ui'
+import { PlusIcon } from '@heroicons/react/24/outline'
 
 const VACIO = { nombre: '', telefono: '', moto: '', notas: '' }
 
@@ -57,7 +58,7 @@ export default function Clientes() {
   return (
     <div>
       <Encabezado titulo="Clientes">
-        {gestiona && <Boton onClick={() => setForm(VACIO)}>Nuevo cliente</Boton>}
+        {gestiona && <Boton icono={PlusIcon} onClick={() => setForm(VACIO)}>Nuevo cliente</Boton>}
       </Encabezado>
       <Input className="mb-3 sm:max-w-sm" placeholder="Buscar por nombre, teléfono o moto" value={q} onChange={(e) => setQ(e.target.value)} />
       <Alerta>{error || aviso}</Alerta>

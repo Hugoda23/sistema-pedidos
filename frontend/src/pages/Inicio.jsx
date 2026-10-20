@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { fecha, fechaHora, moneda } from '../lib/formato'
 import { Alerta, Boton } from '../components/ui'
+import { ChatBubbleLeftRightIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 /** Tarjeta de número: etiqueta, valor y una línea de contexto. El color solo va en el aviso, con ícono. */
 function Tarjeta({ etiqueta, valor, contexto, alerta, a }) {
@@ -12,7 +13,7 @@ function Tarjeta({ etiqueta, valor, contexto, alerta, a }) {
       <div className="text-sm text-slate-500">{etiqueta}</div>
       <div className="mt-1 text-2xl font-semibold text-slate-800">{valor}</div>
       {contexto && <div className="mt-1 text-sm text-slate-500">{contexto}</div>}
-      {alerta && <div className="mt-1 text-sm font-medium text-amber-700">⚠ {alerta}</div>}
+      {alerta && <div className="mt-1 flex items-start gap-1 text-sm font-medium text-amber-700"><ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />{alerta}</div>}
     </div>
   )
   return a ? <Link to={a} className="block">{cuerpo}</Link> : cuerpo
@@ -50,14 +51,14 @@ export default function Inicio() {
           <h1 className="text-2xl font-bold text-slate-800">Hola, {user.name.split(' ')[0]}</h1>
           <p className="text-slate-500">{new Date().toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
-        {puede('pedidos.gestionar') && <Link to="/pedidos/nuevo"><Boton>Nuevo pedido</Boton></Link>}
+        {puede('pedidos.gestionar') && <Link to="/pedidos/nuevo"><Boton icono={PlusIcon}>Nuevo pedido</Boton></Link>}
       </div>
 
       <Alerta>{error}</Alerta>
       {wa && wa.status !== 'conectado' && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <span>⚠ Su WhatsApp no está vinculado: los avisos que usted genere no saldrán por WhatsApp.</span>
-          <Link to="/whatsapp"><Boton>Vincular mi WhatsApp</Boton></Link>
+          <span className="flex items-center gap-2"><ExclamationTriangleIcon className="h-5 w-5 shrink-0" />Su WhatsApp no está vinculado: los avisos que usted genere no saldrán por WhatsApp.</span>
+          <Link to="/whatsapp"><Boton icono={ChatBubbleLeftRightIcon}>Vincular mi WhatsApp</Boton></Link>
         </div>
       )}
       {!d && !error && <p className="text-slate-400">Cargando…</p>}
@@ -88,7 +89,7 @@ export default function Inicio() {
                 <li key={i}>
                   <Link to={`/pedidos/${x.pedido_id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-slate-50">
                     <span className="min-w-0 truncate"><span className="font-mono">{x.codigo}</span> · {x.descripcion} <span className="text-slate-400">({x.pedido})</span></span>
-                    <span className={`shrink-0 ${x.cumplida ? 'font-medium text-amber-700' : 'text-slate-500'}`}>{x.cumplida && '⚠ '}{fecha(x.fecha_ingreso)}</span>
+                    <span className={`shrink-0 ${x.cumplida ? 'font-medium text-amber-700' : 'text-slate-500'}`}>{x.cumplida && <ExclamationTriangleIcon className="mr-1 inline h-4 w-4 align-[-2px]" />}{fecha(x.fecha_ingreso)}</span>
                   </Link>
                 </li>
               ))}
@@ -116,7 +117,7 @@ export default function Inicio() {
             {p.lista_revisar.map((x, i) => (
               <li key={i} className="flex items-center justify-between gap-3 px-4 py-2.5">
                 <span className="min-w-0 truncate"><span className="font-mono">{x.codigo}</span> · {x.descripcion} ({x.cantidad} u.) · {x.vendedor}</span>
-                <span className="shrink-0 font-medium text-amber-700">⚠ {fecha(x.fecha_ingreso)}</span>
+                <span className="shrink-0 font-medium text-amber-700"><ExclamationTriangleIcon className="mr-1 inline h-4 w-4 align-[-2px]" />{fecha(x.fecha_ingreso)}</span>
               </li>
             ))}
           </Lista>

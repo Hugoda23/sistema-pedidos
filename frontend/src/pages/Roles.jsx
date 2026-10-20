@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { primerError } from '../lib/errores'
 import { Alerta, Badge, Boton, Campo, Encabezado, Input, Modal } from '../components/ui'
+import { PlusIcon } from '@heroicons/react/24/outline'
 
 export default function Roles() {
   const { puede } = useAuth()
@@ -29,7 +30,7 @@ export default function Roles() {
   return (
     <div>
       <Encabezado titulo="Roles y permisos">
-        {gestiona && <Boton onClick={() => setForm({ name: '', permisos: [] })}>Nuevo rol</Boton>}
+        {gestiona && <Boton icono={PlusIcon} onClick={() => setForm({ name: '', permisos: [] })}>Nuevo rol</Boton>}
       </Encabezado>
       <Alerta>{error}</Alerta>
 

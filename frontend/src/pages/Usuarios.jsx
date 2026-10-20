@@ -5,6 +5,7 @@ import { primerError } from '../lib/errores'
 import { useListado } from '../lib/useListado'
 import DataTable from '../components/DataTable'
 import { Alerta, Badge, Boton, Campo, Encabezado, Input, Modal, Select } from '../components/ui'
+import { PlusIcon } from '@heroicons/react/24/outline'
 
 const VACIO = { name: '', email: '', telefono: '', rol: '', activo: true, password: '' }
 const COLOR_ROL = { Administrador: 'morado', Vendedor: 'azul', Proveedor: 'amarillo' }
@@ -39,7 +40,7 @@ export default function Usuarios() {
   return (
     <div>
       <Encabezado titulo="Usuarios">
-        {puede('usuarios.gestionar') && <Boton onClick={() => setForm({ ...VACIO, rol: roles[1] ?? '' })}>Nuevo usuario</Boton>}
+        {puede('usuarios.gestionar') && <Boton icono={PlusIcon} onClick={() => setForm({ ...VACIO, rol: roles[1] ?? '' })}>Nuevo usuario</Boton>}
       </Encabezado>
 
       <div className="mb-3 grid gap-2 sm:grid-cols-3">

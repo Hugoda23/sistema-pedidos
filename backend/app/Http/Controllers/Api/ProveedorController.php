@@ -59,7 +59,7 @@ class ProveedorController extends Controller
             ->groupBy('codigo')->orderBy('codigo')->get();
 
         return (new Excel)
-            ->hoja('Repuestos', ['Código', 'Descripción', 'Cantidad', 'Vendedor', 'Pedido', 'Pedido al proveedor', 'Solicitado', 'Estado', 'Ingreso aprox.', 'Nota'],
+            ->hoja('Repuestos solicitados', ['Código', 'Descripción', 'Cantidad', 'Vendedor', 'Pedido', 'Pedido al proveedor', 'Solicitado', 'Estado', 'Ingreso aprox.', 'Nota'],
                 $items->map(fn (PedidoItem $i) => [
                     $i->codigo, $i->descripcion, $i->cantidad, $i->pedido->vendedor->name, $i->pedido->numero,
                     $i->lote_id ? "#{$i->lote_id}" : '', FechaExcel::PHPToExcel($i->created_at), $i->estado->etiqueta(),

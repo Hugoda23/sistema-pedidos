@@ -10,6 +10,7 @@ import { EstadoItem } from '../components/EstadoBadge'
 import { Link } from 'react-router-dom'
 import BotonExcel from '../components/BotonExcel'
 import { Alerta, Boton, Campo, Encabezado, Input, Modal, Select, Textarea } from '../components/ui'
+import { ChatBubbleLeftRightIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 
 const PESTANAS = [
   ['por_atender', 'Por atender'],
@@ -203,11 +204,11 @@ function ResultadoWhatsapp({ r, onCerrar }) {
     <div className={`my-3 flex items-start justify-between gap-3 rounded-xl border p-3 text-sm ${detenido ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-green-200 bg-green-50 text-green-900'}`}>
       <div className="space-y-1">
         {r.enviados.length > 0 && (detenido
-          ? <p>⚠ Su WhatsApp no está vinculado: el aviso a {r.enviados.join(', ')} quedó detenido. <Link to="/whatsapp" className="font-medium underline">Vincúlelo y reintente</Link>.</p>
-          : <p>💬 Aviso por WhatsApp enviado a: {r.enviados.join(', ')}.</p>)}
+          ? <p className="flex items-start gap-1.5"><ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" /><span>Su WhatsApp no está vinculado: el aviso a {r.enviados.join(', ')} quedó detenido. <Link to="/whatsapp" className="font-medium underline">Vincúlelo y reintente</Link>.</span></p>
+          : <p className="flex items-center gap-1.5"><ChatBubbleLeftRightIcon className="h-4 w-4 shrink-0" />Aviso por WhatsApp enviado a: {r.enviados.join(', ')}.</p>)}
         {r.sin_telefono.length > 0 && <p className="text-amber-800">Sin teléfono registrado (solo campanita): {r.sin_telefono.join(', ')}.</p>}
       </div>
-      <button onClick={onCerrar} aria-label="Cerrar">×</button>
+      <button onClick={onCerrar} aria-label="Cerrar" className="rounded p-0.5 hover:bg-black/5"><XMarkIcon className="h-4 w-4" /></button>
     </div>
   )
 }

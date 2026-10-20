@@ -27,9 +27,10 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <form onSubmit={enviar} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Sistema de Pedidos</h1>
-          <p className="text-sm text-slate-500">Ingresa con tu cuenta</p>
+        <div className="text-center">
+          <img src="/logo.jpg" alt="Motorepuestos Mota" className="mx-auto h-36 w-36 object-contain" />
+          <h1 className="mt-2 text-xl font-bold text-slate-800">Motorepuestos Mota</h1>
+          <p className="text-sm text-slate-500">Sistema de pedidos · Ingrese con su cuenta</p>
         </div>
 
         {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}

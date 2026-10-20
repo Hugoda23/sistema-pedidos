@@ -32,6 +32,12 @@ class ExportarTest extends TestCase
         }
     }
 
+    /** Las filas de la tabla (encabezado incluido), sin el bloque del logo y el título. */
+    private function tabla(Spreadsheet $libro, string $hoja, bool $formato = false): array
+    {
+        return array_slice($libro->getSheetByName($hoja)->toArray(null, true, $formato), \App\Support\Excel::FILA_TABLA - 1);
+    }
+
     private function libro(TestResponse $res): Spreadsheet
     {
         $res->assertOk()->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -46,16 +52,21 @@ class ExportarTest extends TestCase
         $prov = User::factory()->create()->assignRole('Proveedor');
         $libro = $this->libro($this->actingAs($prov)->get('/api/proveedor/exportar'));
 
-        $detalle = $libro->getSheetByName('Repuestos')->toArray();
+        $hoja = $libro->getSheetByName('Repuestos solicitados');
+        $this->assertSame('Motorepuestos Mota', $hoja->getCell('B1')->getValue());
+        $this->assertSame('Repuestos solicitados', $hoja->getCell('B2')->getValue());
+        $this->assertCount(1, $hoja->getDrawingCollection()); // el logo
+
+        $detalle = $this->tabla($libro, 'Repuestos solicitados');
         $this->assertSame('Código', $detalle[0][0]);
         $this->assertCount(3, $detalle); // encabezado + 2 líneas
         $this->assertSame('Ana', $detalle[1][3]);
 
-        $todo = json_encode([$detalle, $libro->getSheetByName('Sumado por código')->toArray()]);
+        $todo = json_encode([$detalle, $this->tabla($libro, 'Sumado por código')]);
         $this->assertStringNotContainsString('Cliente Secreto', $todo);
         $this->assertStringNotContainsString('150', $todo);
 
-        $suma = $libro->getSheetByName('Sumado por código')->toArray();
+        $suma = $this->tabla($libro, 'Sumado por código');
         $this->assertEquals(['LOD-1', 'Lodera', 5, 2], $suma[1]);
     }
 
@@ -63,16 +74,16 @@ class ExportarTest extends TestCase
     {
         $libro = $this->libro($this->actingAs($this->vendedor)->get('/api/pedidos/exportar?q=secreto'));
 
-        $pedidos = $libro->getSheetByName('Pedidos')->toArray(null, true, false);
+        $pedidos = $this->tabla($libro, 'Pedidos');
         $this->assertCount(2, $pedidos);
         $this->assertSame('Cliente Secreto', $pedidos[1][2]);
         $this->assertEquals(300, $pedidos[1][6]);
         $this->assertEquals(250, $pedidos[1][8]);
-        $this->assertCount(2, $libro->getSheetByName('Líneas')->toArray());
+        $this->assertCount(2, $this->tabla($libro, 'Líneas'));
 
         // Otro vendedor no exporta pedidos ajenos.
         $otro = User::factory()->create()->assignRole('Vendedor');
-        $this->assertCount(1, $this->libro($this->actingAs($otro)->get('/api/pedidos/exportar'))->getSheetByName('Pedidos')->toArray());
+        $this->assertCount(1, $this->tabla($this->libro($this->actingAs($otro)->get('/api/pedidos/exportar')), 'Pedidos'));
     }
 
     public function test_vendedor_no_exporta_lo_del_proveedor(): void

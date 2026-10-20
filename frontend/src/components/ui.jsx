@@ -1,5 +1,6 @@
 // Piezas básicas de interfaz que usan todos los módulos.
 import { useEffect } from 'react'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 
 const VARIANTES = {
   primario: 'bg-blue-600 text-white hover:bg-blue-700',
@@ -7,10 +8,14 @@ const VARIANTES = {
   peligro: 'bg-red-600 text-white hover:bg-red-700',
 }
 
-export function Boton({ variante = 'primario', className = '', ...props }) {
+/** `icono`: un componente de Heroicons (p. ej. PrinterIcon) que va antes del texto. */
+export function Boton({ variante = 'primario', className = '', icono: Icono, children, ...props }) {
   return (
     <button {...props}
-      className={`rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60 ${VARIANTES[variante]} ${className}`} />
+      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60 ${VARIANTES[variante]} ${className}`}>
+      {Icono && <Icono className="h-4 w-4 shrink-0" aria-hidden="true" />}
+      {children}
+    </button>
   )
 }
 
@@ -52,7 +57,7 @@ export function Modal({ abierto, titulo, onCerrar, children, ancho = 'max-w-lg' 
       <div className={`w-full ${ancho} rounded-xl bg-white shadow-xl`}>
         <div className="flex items-center justify-between border-b px-5 py-3">
           <h2 className="font-semibold text-slate-800">{titulo}</h2>
-          <button onClick={onCerrar} className="text-xl leading-none text-slate-400 hover:text-slate-600" aria-label="Cerrar">×</button>
+          <button onClick={onCerrar} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Cerrar"><XMarkIcon className="h-5 w-5" /></button>
         </div>
         <div className="p-5">{children}</div>
       </div>

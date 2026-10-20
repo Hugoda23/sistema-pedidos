@@ -38,14 +38,14 @@ class Avisos
 
         foreach ($items->groupBy(fn (PedidoItem $i) => $i->pedido->vendedor_id) as $lineas) {
             $vendedor = $lineas->first()->pedido->vendedor;
-            [$icono, $titulo] = match ($estado) {
-                EstadoItem::Enviado => ['✅', 'Repuestos enviados'],
-                EstadoItem::NoDisponible => ['⏳', 'Repuestos sin existencia'],
-                EstadoItem::Descontinuado => ['⛔', 'Repuestos descontinuados'],
-                default => ['🔔', 'Actualización del proveedor'],
+            $titulo = match ($estado) {
+                EstadoItem::Enviado => 'Repuestos enviados',
+                EstadoItem::NoDisponible => 'Repuestos sin existencia',
+                EstadoItem::Descontinuado => 'Repuestos descontinuados',
+                default => 'Actualización del proveedor',
             };
 
-            $texto = "{$icono} *{$titulo}*\n\n".$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i)
+            $texto = "*{$titulo}*\n\n".$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i)
                 .($estado === EstadoItem::NoDisponible ? ' — ingreso aprox. '.$i->fecha_ingreso->format('d/m/Y') : '')
             )->implode("\n").($nota ? "\n\nNota: {$nota}" : '');
 
@@ -66,7 +66,7 @@ class Avisos
 
         foreach ($items->groupBy(fn (PedidoItem $i) => $i->pedido->vendedor_id) as $lineas) {
             $vendedor = $lineas->first()->pedido->vendedor;
-            $texto = "📦 *Pedido #{$lote->id} cerrado*\n\nIncluye sus repuestos:\n"
+            $texto = "*Pedido #{$lote->id} cerrado*\n\nIncluye sus repuestos:\n"
                 .$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i))->implode("\n");
 
             $vendedor->notify(new Aviso("Pedido #{$lote->id} cerrado", $lineas->count().' de sus líneas van en este pedido.', '/pedidos'));

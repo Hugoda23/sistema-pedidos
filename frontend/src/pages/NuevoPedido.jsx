@@ -8,6 +8,7 @@ import { buscarClientes, buscarProductos } from '../lib/busquedas'
 import FormModal from '../components/FormModal'
 import { CamposCliente } from './Clientes'
 import { Alerta, Boton, Campo, Encabezado, Input, Textarea } from '../components/ui'
+import { PlusIcon, TrashIcon, UserPlusIcon } from '@heroicons/react/24/outline'
 
 // randomUUID no existe fuera de HTTPS; un contador basta como clave.
 let sig = 0
@@ -72,8 +73,8 @@ export default function NuevoPedido() {
               placeholder="Escribe para buscar…"
               render={(c) => <><span className="font-medium">{c.nombre}</span> <span className="text-slate-500">{c.telefono} {c.moto && `· ${c.moto}`}</span></>}
               extra={(cerrar) => (
-                <button className="text-blue-600" onMouseDown={(e) => { e.preventDefault(); cerrar(); setNuevoCliente({ nombre: textoCliente, telefono: '', moto: '', notas: '' }) }}>
-                  + Registrar cliente nuevo{textoCliente && ` «${textoCliente}»`}
+                <button className="inline-flex items-center gap-1 text-blue-600" onMouseDown={(e) => { e.preventDefault(); cerrar(); setNuevoCliente({ nombre: textoCliente, telefono: '', moto: '', notas: '' }) }}>
+                  <UserPlusIcon className="h-4 w-4" />Registrar cliente nuevo{textoCliente && ` «${textoCliente}»`}
                 </button>
               )} />
           </Campo>
@@ -100,14 +101,14 @@ export default function NuevoPedido() {
               <div className="flex items-center justify-between gap-2 sm:col-span-2">
                 <span className="text-sm text-slate-600">{moneda((Number(l.cantidad) || 0) * (Number(l.precio) || 0))}</span>
                 {lineas.length > 1 && (
-                  <button className="text-red-500 hover:text-red-700" title="Quitar línea" onClick={() => setLineas(lineas.filter((_, j) => j !== i))}>✕</button>
+                  <button className="rounded p-1 text-red-500 hover:bg-red-50 hover:text-red-700" title="Quitar línea" aria-label="Quitar línea" onClick={() => setLineas(lineas.filter((_, j) => j !== i))}><TrashIcon className="h-5 w-5" /></button>
                 )}
               </div>
             </div>
           ))}
         </div>
         {errores.items && <p className="mt-2 text-sm text-red-600">{errores.items}</p>}
-        <button className="mt-3 text-sm text-blue-600 hover:underline" onClick={() => setLineas([...lineas, lineaVacia()])}>+ Agregar otro producto</button>
+        <button className="mt-3 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline" onClick={() => setLineas([...lineas, lineaVacia()])}><PlusIcon className="h-4 w-4" />Agregar otro producto</button>
       </section>
 
       <section className="mt-4 grid gap-4 rounded-xl border bg-white p-4 sm:grid-cols-2">

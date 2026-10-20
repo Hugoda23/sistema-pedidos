@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiTexto, descargar } from '../lib/api'
 import { Alerta, Boton, Modal } from './ui'
+import { ArrowDownTrayIcon, ChatBubbleLeftRightIcon, PrinterIcon } from '@heroicons/react/24/outline'
 
 const ANCHO_HOJA = 816 // carta a 96 ppp
 const ALTO_HOJA = 1056
@@ -56,9 +57,9 @@ export default function VistaPreviaComprobante({ pedido, onCerrar, onWhatsapp })
         )}
       </div>
       <div className="mt-4 flex flex-wrap justify-end gap-2">
-        {onWhatsapp && <Boton variante="secundario" onClick={onWhatsapp}>💬 Enviar por WhatsApp</Boton>}
-        <Boton variante="secundario" onClick={pdf} disabled={!html || bajando}>{bajando ? 'Generando…' : '⬇ Descargar PDF'}</Boton>
-        <Boton onClick={imprimir} disabled={!html}>🖨 Imprimir</Boton>
+        {onWhatsapp && <Boton variante="secundario" icono={ChatBubbleLeftRightIcon} onClick={onWhatsapp}>Enviar por WhatsApp</Boton>}
+        <Boton variante="secundario" icono={ArrowDownTrayIcon} onClick={pdf} disabled={!html || bajando}>{bajando ? 'Generando…' : 'Descargar PDF'}</Boton>
+        <Boton icono={PrinterIcon} onClick={imprimir} disabled={!html}>Imprimir</Boton>
       </div>
       <p className="mt-2 text-right text-xs text-slate-500">Para enviarlo al cliente: descargue el PDF y adjúntelo en WhatsApp.</p>
     </Modal>
