@@ -160,7 +160,7 @@ class InventarioTest extends TestCase
         // El vendedor no marca enviado; el proveedor no agrega.
         $this->actingAs($this->ana)->postJson('/api/inventario/estado', ['ids' => [$id], 'estado' => 'enviado'])->assertForbidden();
         $this->actingAs($this->proveedor)->postJson('/api/inventario', ['codigo' => 'X', 'descripcion' => 'x', 'cantidad' => 1])->assertForbidden();
-        $this->getJson('/api/inventario')->assertJsonPath('data.0.acciones', ['enviado', 'no_disponible', 'descontinuado'])
+        $this->getJson('/api/inventario')->assertJsonPath('data.0.acciones', ['enviado', 'no_disponible', 'descontinuado', 'envio_parcial'])
             ->assertJsonPath('data.0.editable', false);
     }
 
@@ -199,5 +199,54 @@ class InventarioTest extends TestCase
 
         $res = $this->actingAs($this->proveedor)->get('/api/inventario/exportar')->assertOk();
         $this->assertStringContainsString('inventario-', $res->headers->get('content-disposition'));
+    }
+    public function test_envio_parcial_deja_lo_que_falta_en_la_lista_hasta_que_ingresa(): void
+    {
+        $id = $this->agregar($this->ana, 'FIL-1', 10)->json('id');
+        $fecha = today()->addDays(5)->format('Y-m-d');
+        $url = "/api/inventario/{$id}/envio-parcial";
+
+        // Solo el proveedor; pide fecha de ingreso; no se puede «parcial» con todo lo pedido.
+        $this->actingAs($this->ana)->postJson($url, ['cantidad' => 5, 'fecha_ingreso' => $fecha])->assertForbidden();
+        $this->actingAs($this->proveedor)->getJson('/api/inventario')->assertJsonPath('data.0.acciones', ['enviado', 'no_disponible', 'descontinuado', 'envio_parcial']);
+        $this->postJson($url, ['cantidad' => 5])->assertStatus(422)->assertJsonValidationErrors('fecha_ingreso');
+        $this->postJson($url, ['cantidad' => 10, 'fecha_ingreso' => $fecha])->assertStatus(422)->assertJsonValidationErrors('cantidad');
+
+        $this->postJson($url, ['cantidad' => 5, 'fecha_ingreso' => $fecha, 'nota' => 'El resto viene del contenedor'])->assertOk()
+            ->assertJsonPath('item.enviada', 5)->assertJsonPath('item.faltan', 5)
+            ->assertJsonPath('whatsapp.enviados', ['Ana']);
+        $this->assertSame(1, $this->ana->notifications()->count());
+
+        // Sigue en «Pendientes» como sin existencia, con lo que falta y su fecha; el vendedor ya no la edita.
+        $this->actingAs($this->ana)->getJson('/api/inventario')->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.estado', 'no_disponible')->assertJsonPath('data.0.fecha_ingreso', $fecha)
+            ->assertJsonPath('data.0.cantidad', 10)->assertJsonPath('data.0.faltan', 5)->assertJsonPath('data.0.editable', false);
+
+        // Otro parcial sobre lo que falta: 3 de los 5.
+        $this->actingAs($this->proveedor)->postJson($url, ['cantidad' => 5, 'fecha_ingreso' => $fecha])->assertStatus(422);
+        $this->postJson($url, ['cantidad' => 3, 'fecha_ingreso' => $fecha])->assertOk()->assertJsonPath('item.faltan', 2);
+
+        // Cuando ingresa, «Enviado» manda el resto y sale de la lista.
+        $this->postJson('/api/inventario/estado', ['ids' => [$id], 'estado' => 'enviado'])->assertOk();
+        $item = InventarioItem::find($id);
+        $this->assertSame('enviado', $item->estado->value);
+        $this->assertSame(10, $item->enviada);
+        $this->getJson('/api/inventario')->assertJsonCount(0, 'data');
+        $this->assertSame([5, 3, 2], $item->historial()->whereIn('accion', ['envio_parcial', 'enviado'])->pluck('cantidad')->all());
+
+        // El reporte y el resumen del pedido llevan las unidades enviadas.
+        $this->getJson('/api/inventario/pedidos')->assertJsonPath('0.unidades', 10)->assertJsonPath('0.unidades_enviadas', 10);
+        $this->get('/api/inventario/pedidos/'.$item->lote_id.'/reporte')->assertOk()->assertSee('Envío parcial');
+    }
+
+    public function test_descontinuar_lo_que_falta_de_un_envio_parcial(): void
+    {
+        $id = $this->agregar($this->ana, 'FIL-1', 4)->json('id');
+        $this->actingAs($this->proveedor)->postJson("/api/inventario/{$id}/envio-parcial", ['cantidad' => 1, 'fecha_ingreso' => today()->format('Y-m-d')])->assertOk();
+        $this->postJson('/api/inventario/estado', ['ids' => [$id], 'estado' => 'descontinuado'])->assertOk();
+
+        $item = InventarioItem::find($id);
+        $this->assertSame('descontinuado', $item->estado->value);
+        $this->assertSame(1, $item->enviada);
     }
 }

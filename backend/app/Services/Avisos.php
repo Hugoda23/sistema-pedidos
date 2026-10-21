@@ -59,7 +59,8 @@ class Avisos
     }
 
     /** El proveedor atendió repuestos del pedido de inventario: se le avisa a quien los agregó. */
-    public function inventarioActualizado(Collection $items, EstadoItem $estado, User $proveedor, ?string $nota): array
+    /** @param  array<int,int>  $unidades  id => unidades que salieron (el resto de un envío parcial, no el total) */
+    public function inventarioActualizado(Collection $items, EstadoItem $estado, User $proveedor, ?string $nota, array $unidades = []): array
     {
         $items = Modelos::make($items->all())->load('creador');
         $resumen = ['enviados' => [], 'sin_telefono' => []];
@@ -72,13 +73,42 @@ class Avisos
 
         foreach ($items->groupBy('creado_por') as $lineas) {
             $vendedor = $lineas->first()->creador;
-            $texto = "*{$titulo}*\n\n".$lineas->map(fn ($i) => "• {$i->codigo} {$i->descripcion} ({$i->cantidad} u.)"
+            $texto = "*{$titulo}*\n\n".$lineas->map(fn ($i) => "• {$i->codigo} {$i->descripcion} ".$this->unidadesInventario($i, $estado, $unidades[$i->id] ?? null)
                 .($estado === EstadoItem::NoDisponible ? ' — ingreso aprox. '.$i->fecha_ingreso->format('d/m/Y') : ''))->implode("\n")
                 .($nota ? "\n\nNota: {$nota}" : '');
 
             $vendedor->notify(new Aviso($titulo, $this->resumen($lineas), '/inventario'));
             $this->aUsuario($proveedor, $vendedor, $texto, 'inventario', null, $resumen);
         }
+
+        return $resumen;
+    }
+
+    /** «(10 u.)», o al completar un envío parcial «(las 5 que faltaban de 10)». */
+    private function unidadesInventario(\App\Models\InventarioItem $i, EstadoItem $estado, ?int $salieron): string
+    {
+        if ($estado === EstadoItem::Enviado && $salieron !== null && $salieron < $i->cantidad) {
+            return "(las {$salieron} que faltaban de {$i->cantidad})";
+        }
+        if ($estado !== EstadoItem::Enviado && $i->enviada > 0) {
+            return "(faltan {$i->faltan()} de {$i->cantidad})";
+        }
+
+        return "({$i->cantidad} u.)";
+    }
+
+    /** El proveedor mandó solo una parte: a quien lo agregó, cuántas van y cuándo ingresa el resto. */
+    public function inventarioParcial(\App\Models\InventarioItem $item, int $cantidad, User $proveedor, ?string $nota): array
+    {
+        $item->loadMissing('creador');
+        $resumen = ['enviados' => [], 'sin_telefono' => []];
+        $vendedor = $item->creador;
+        $titulo = 'Inventario: envío parcial';
+        $detalle = "se enviaron {$cantidad} de {$item->cantidad} (van {$item->enviada}); faltan {$item->faltan()}, ingreso aprox. ".$item->fecha_ingreso->format('d/m/Y');
+        $texto = "*{$titulo}*\n\n• {$item->codigo} {$item->descripcion}: {$detalle}".($nota ? "\n\nNota: {$nota}" : '');
+
+        $vendedor->notify(new Aviso($titulo, "{$item->codigo}: {$detalle}", '/inventario'));
+        $this->aUsuario($proveedor, $vendedor, $texto, 'inventario', null, $resumen);
 
         return $resumen;
     }

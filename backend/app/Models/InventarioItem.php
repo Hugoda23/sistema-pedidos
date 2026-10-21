@@ -14,7 +14,7 @@ class InventarioItem extends Model
     /** Lo que sigue en la lista; lo enviado o descontinuado sale de ella. */
     public const ACTIVOS = ['pendiente', 'no_disponible'];
 
-    protected $fillable = ['codigo', 'descripcion', 'cantidad', 'estado', 'fecha_ingreso', 'nota_proveedor',
+    protected $fillable = ['codigo', 'descripcion', 'cantidad', 'enviada', 'estado', 'fecha_ingreso', 'nota_proveedor',
         'lote_id', 'creado_por', 'atendido_por', 'atendido_en'];
 
     protected function casts(): array
@@ -22,6 +22,7 @@ class InventarioItem extends Model
         return [
             'estado' => EstadoItem::class,
             'cantidad' => 'integer',
+            'enviada' => 'integer',
             'fecha_ingreso' => 'date:Y-m-d',
             'atendido_en' => 'datetime',
         ];
@@ -50,6 +51,12 @@ class InventarioItem extends Model
     public function historial(): HasMany
     {
         return $this->hasMany(InventarioHistorial::class)->orderBy('id');
+    }
+
+    /** Unidades que el proveedor todavía no ha enviado. */
+    public function faltan(): int
+    {
+        return max(0, $this->cantidad - $this->enviada);
     }
 
     /** Mientras el proveedor no cierre el pedido, los vendedores pueden corregirla o quitarla. */

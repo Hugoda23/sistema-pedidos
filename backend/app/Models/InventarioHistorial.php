@@ -24,6 +24,7 @@ class InventarioHistorial extends Model
         'editado' => 'Editado',
         'quitado' => 'Quitado',
         'enviado' => 'Enviado',
+        'envio_parcial' => 'Envío parcial',
         'no_disponible' => 'No disponible',
         'descontinuado' => 'Descontinuado',
     ];

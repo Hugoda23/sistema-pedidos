@@ -51,6 +51,10 @@ el primer repuesto que se agregue.
 Al cerrarlo se abre la vista previa del PDF del pedido (imprimir o descargar). En «Repuestos
 solicitados» se puede sacar el reporte de un pedido de clientes eligiéndolo → «Reporte» (sin
 clientes ni precios). Lo que el proveedor marca enviado o descontinuado sale de la lista (pestaña «Enviados»).
+**Envío parcial:** si se piden 10 y el proveedor solo tiene 5, en «Envío parcial» indica cuántos manda y la
+fecha aproximada en que ingresa el resto. La línea sigue en la lista («5 enviadas · faltan 5», no disponible
+con su fecha; al llegar la fecha pasa a «Revisar ingreso») y cuando los manda, «Enviar los que faltan» la
+completa. A quien la agregó se le avisa en ambos momentos (campanita y WhatsApp).
 Junto al título se ve el número del pedido abierto; la pestaña «Pedidos» lista cada pedido con su
 **reporte** (vista previa, imprimir o PDF) con todos los movimientos: agregado, sumado, editado,
 quitado, enviado, no disponible y descontinuado, con usuario y hora. Quitar no borra: queda en el reporte.

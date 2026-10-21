@@ -9,7 +9,7 @@ import BotonExcel from '../components/BotonExcel'
 import { EstadoItem } from '../components/EstadoBadge'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
 import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
-import { Alerta, Boton, Campo, Encabezado, Input, Modal } from '../components/ui'
+import { Alerta, Boton, Campo, Encabezado, Input, Modal, Textarea } from '../components/ui'
 import { DocumentTextIcon, ExclamationTriangleIcon, LockClosedIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 const PESTANAS = [
@@ -38,6 +38,7 @@ export default function Inventario() {
   const [whatsapp, setWhatsapp] = useState(null)
   const [pedidos, setPedidos] = useState([])
   const [reporte, setReporte] = useState(null) // { id, numero } del pedido
+  const [parcial, setParcial] = useState(null) // fila a la que el proveedor manda solo una parte
 
   const cargarPedidos = useCallback(() => api('/inventario/pedidos').then(setPedidos).catch(() => {}), [])
   useEffect(() => { cargarPedidos() }, [cargarPedidos])
@@ -84,6 +85,22 @@ export default function Inventario() {
     }
   }
 
+  /** El proveedor manda solo una parte; lo que falta sigue en la lista con su fecha de ingreso. */
+  const enviarParcial = async (fila, datos) => {
+    setAviso({ texto: '' })
+    try {
+      const r = await api(`/inventario/${fila.id}/envio-parcial`, { method: 'POST', body: datos })
+      setAviso({ tipo: 'ok', texto: `${fila.codigo}: se enviaron ${datos.cantidad}; faltan ${r.item.faltan}.` })
+      setWhatsapp(r.whatsapp)
+      setParcial(null)
+      recargar()
+      cargarPedidos()
+      return null
+    } catch (e) {
+      return e
+    }
+  }
+
   /** El proveedor cierra el pedido consolidado: lo que se agregue después cae en el siguiente. */
   const cerrarPedido = async () => {
     if (!confirm(`¿Cerrar el pedido de inventario #${abierto.numero} con ${abierto.repuestos} repuesto(s)? Lo que se agregue después irá al siguiente. Los pedidos de clientes no se cierran.`)) return
@@ -113,7 +130,17 @@ export default function Inventario() {
     }] : []),
     { header: 'Código', accessorKey: 'codigo', cell: (c) => <span className="font-mono font-medium">{c.getValue()}</span> },
     { header: 'Descripción', accessorKey: 'descripcion', cell: (c) => <div className="min-w-32 max-w-xs whitespace-normal">{c.getValue()}</div> },
-    { header: 'Cant.', accessorKey: 'cantidad', cell: (c) => <span className="font-semibold">{c.getValue()}</span> },
+    {
+      header: 'Cant.', accessorKey: 'cantidad',
+      cell: ({ row: { original: f } }) => (
+        <div>
+          <span className="font-semibold">{f.cantidad}</span>
+          {f.enviada > 0 && f.estado !== 'enviado' && (
+            <div className="whitespace-nowrap text-xs text-amber-700">{f.enviada} enviadas · <b>faltan {f.faltan}</b></div>
+          )}
+        </div>
+      ),
+    },
     {
       header: 'Agregado por', id: 'aportes',
       cell: ({ row: { original: f } }) => <div className="whitespace-normal">{f.aportes.map((a) => `${a.nombre} (${a.cantidad})`).join(', ')}</div>,
@@ -142,7 +169,8 @@ export default function Inventario() {
         <div className="flex flex-col items-start gap-0.5 text-sm">
           {f.editable && <button className="text-blue-600 hover:underline" onClick={() => setEditar(f)}>Editar</button>}
           {f.editable && <button className="text-slate-500 hover:underline" onClick={() => quitar(f)}>Quitar</button>}
-          {f.acciones.includes('enviado') && <button className="text-blue-600 hover:underline" onClick={() => cambiar('enviado', [f.id])}>Enviado</button>}
+          {f.acciones.includes('enviado') && <button className="text-blue-600 hover:underline" onClick={() => cambiar('enviado', [f.id])}>{f.enviada > 0 ? `Enviar las ${f.faltan} que faltan` : 'Enviado'}</button>}
+          {f.acciones.includes('envio_parcial') && <button className="text-blue-600 hover:underline" onClick={() => setParcial(f)}>Envío parcial</button>}
           {f.acciones.includes('no_disponible') && <button className="text-amber-700 hover:underline" onClick={() => setDialogo({ estado: 'no_disponible', ids: [f.id], fila: f })}>{f.estado === 'no_disponible' ? 'Nueva fecha' : 'No disponible'}</button>}
           {f.acciones.includes('descontinuado') && <button className="text-red-600 hover:underline" onClick={() => setDialogo({ estado: 'descontinuado', ids: [f.id], fila: f })}>Descontinuado</button>}
         </div>
@@ -169,6 +197,7 @@ export default function Inventario() {
       </Encabezado>
       <p className="-mt-2 mb-4 text-sm text-slate-500">
         Repuestos que faltan en la tienda. Lo ven todos los vendedores y el proveedor; lo que el proveedor envía sale de la lista.
+        Si manda solo una parte, lo que falta sigue aquí con la fecha aproximada en que ingresa.
         Se puede corregir o quitar mientras el proveedor no cierre el pedido de inventario (va aparte del de clientes).
       </p>
 
@@ -231,6 +260,7 @@ export default function Inventario() {
               <div>
                 <p><span className="font-mono font-semibold">{duplicado.existente.codigo}</span> · {duplicado.existente.descripcion}</p>
                 <p>Ya hay <b>{duplicado.existente.cantidad}</b> en el pedido de inventario (agregado por {duplicado.existente.agregado_por}).</p>
+                {duplicado.existente.enviada > 0 && <p>El proveedor ya envió {duplicado.existente.enviada}; faltan <b>{duplicado.existente.faltan}</b>.</p>}
                 {duplicado.existente.estado === 'no_disponible' && <p>El proveedor lo tiene sin existencia{duplicado.existente.fecha_ingreso && `, ingreso aprox. ${fecha(duplicado.existente.fecha_ingreso)}`}.</p>}
               </div>
             </div>
@@ -248,6 +278,7 @@ export default function Inventario() {
         </Modal>
       )}
 
+      {parcial && <DialogoParcial fila={parcial} onCerrar={() => setParcial(null)} onEnviar={enviarParcial} />}
       {editar && <EditarLinea fila={editar} onCerrar={() => setEditar(null)} onGuardado={() => { setEditar(null); recargar() }} />}
       {dialogo && <DialogoEstado dialogo={dialogo} onCerrar={() => setDialogo(null)} onEnviar={cambiar}
         avisoDescontinuado="El repuesto saldrá de la lista de inventario y se le avisará a quien lo agregó." />}
@@ -268,6 +299,7 @@ function TablaPedidos({ pedidos, onReporte }) {
     },
     { header: 'Repuestos', accessorKey: 'repuestos' },
     { header: 'Unidades', accessorKey: 'unidades' },
+    { header: 'Unid. enviadas', accessorKey: 'unidades_enviadas' },
     { header: 'Enviados', accessorKey: 'enviados' },
     { header: 'Pendientes', accessorKey: 'pendientes' },
     {
@@ -279,6 +311,51 @@ function TablaPedidos({ pedidos, onReporte }) {
   ], [onReporte])
 
   return <div className="mt-2"><DataTable columnas={columnas} datos={pedidos} vacio="Todavía no hay pedidos con inventario." /></div>
+}
+
+/** Envío parcial: cuántas manda ahora y cuándo ingresa lo que falta. */
+function DialogoParcial({ fila, onCerrar, onEnviar }) {
+  const [d, setD] = useState({ cantidad: '', fecha_ingreso: fila.fecha_ingreso ?? '', nota: '' })
+  const [errores, setErrores] = useState({})
+  const [msg, setMsg] = useState('')
+  const cantidad = Number(d.cantidad) || 0
+  const quedan = fila.faltan - cantidad
+
+  const enviar = async (e) => {
+    e.preventDefault()
+    const err = await onEnviar(fila, d)
+    if (err) { setErrores(primerError(err.errors)); setMsg(err.message) }
+  }
+
+  return (
+    <Modal abierto titulo="Envío parcial" onCerrar={onCerrar}>
+      <form onSubmit={enviar} className="space-y-3">
+        <p className="text-sm text-slate-600">
+          <span className="font-mono font-medium">{fila.codigo}</span> · {fila.descripcion}<br />
+          Pedidos: <b>{fila.cantidad}</b>{fila.enviada > 0 && <> · ya enviados: {fila.enviada}</>} · faltan: <b>{fila.faltan}</b>
+        </p>
+        {!Object.keys(errores).length && <Alerta>{msg}</Alerta>}
+        <Campo label="¿Cuántos envía ahora?" error={errores.cantidad}>
+          <Input required type="number" min="1" max={fila.faltan - 1} autoFocus value={d.cantidad} onChange={(e) => setD({ ...d, cantidad: e.target.value })} />
+        </Campo>
+        {cantidad > 0 && quedan > 0 && (
+          <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900">
+            Quedan <b>{quedan}</b> pendientes: siguen en la lista como «No disponible» hasta que los envíe.
+          </p>
+        )}
+        <Campo label="¿Cuándo ingresan los que faltan? (aprox.)" error={errores.fecha_ingreso}>
+          <Input type="date" required min={new Date().toLocaleDateString('en-CA')} value={d.fecha_ingreso} onChange={(e) => setD({ ...d, fecha_ingreso: e.target.value })} />
+        </Campo>
+        <Campo label="Nota para el vendedor (opcional)" error={errores.nota}>
+          <Textarea value={d.nota} onChange={(e) => setD({ ...d, nota: e.target.value })} placeholder="Ej.: el resto viene en el próximo contenedor" />
+        </Campo>
+        <div className="flex justify-end gap-2">
+          <Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton>
+          <Boton>Guardar</Boton>
+        </div>
+      </form>
+    </Modal>
+  )
 }
 
 function EditarLinea({ fila, onCerrar, onGuardado }) {

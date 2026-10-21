@@ -63,6 +63,7 @@
             <tr>
                 <td><div class="n">{{ $activos->count() }}</div><div class="gris">repuestos</div></td>
                 <td><div class="n">{{ $activos->sum('cantidad') }}</div><div class="gris">unidades</div></td>
+                <td><div class="n">{{ $activos->sum('enviada') }}</div><div class="gris">unid. enviadas</div></td>
                 <td><div class="n">{{ $items->where('estado', EstadoItem::Enviado)->count() }}</div><div class="gris">enviados</div></td>
                 <td><div class="n">{{ $items->where('estado', EstadoItem::NoDisponible)->count() }}</div><div class="gris">sin existencia</div></td>
                 <td><div class="n">{{ $items->where('estado', EstadoItem::Pendiente)->count() }}</div><div class="gris">pendientes</div></td>
@@ -73,7 +74,7 @@
 
     <h3>Repuestos</h3>
     <table class="tabla">
-        <thead><tr><th>Código</th><th>Descripción</th><th class="der">Cant.</th><th>Agregado por</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Código</th><th>Descripción</th><th class="der">Cant.</th><th class="der">Enviadas</th><th>Agregado por</th><th>Estado</th></tr></thead>
         <tbody>
         @forelse ($items as $i)
             @php
@@ -84,14 +85,16 @@
                 <td class="cod">{{ $i->codigo }}</td>
                 <td>{{ $i->descripcion }}</td>
                 <td class="der">{{ $i->cantidad }}</td>
+                <td class="der">{{ $i->enviada }}</td>
                 <td>{{ $aportes }}</td>
                 <td>
                     {{ $i->estado === EstadoItem::Anulado ? 'Quitado' : $i->estado->etiqueta() }}
+                    @if ($i->enviada > 0 && $i->faltan() > 0 && $i->estado !== EstadoItem::Anulado)<br><span class="gris">Envío parcial: faltan {{ $i->faltan() }}</span>@endif
                     @if ($i->estado === EstadoItem::NoDisponible && $i->fecha_ingreso)<br><span class="gris">Ingreso aprox. {{ $i->fecha_ingreso->format('d/m/Y') }}</span>@endif
                 </td>
             </tr>
         @empty
-            <tr><td colspan="5" class="gris">Este pedido no lleva repuestos de inventario.</td></tr>
+            <tr><td colspan="6" class="gris">Este pedido no lleva repuestos de inventario.</td></tr>
         @endforelse
         </tbody>
     </table>

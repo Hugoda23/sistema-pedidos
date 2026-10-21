@@ -88,6 +88,8 @@ class InventarioController extends Controller
                     'codigo' => $e->codigo,
                     'descripcion' => $e->descripcion,
                     'cantidad' => $e->cantidad,
+                    'enviada' => $e->enviada,
+                    'faltan' => $e->faltan(),
                     'estado' => $e->estado->value,
                     'fecha_ingreso' => $e->fecha_ingreso?->format('Y-m-d'),
                     'agregado_por' => $e->creador->name,
@@ -149,7 +151,8 @@ class InventarioController extends Controller
         $nuevo = EstadoItem::from($datos['estado']);
         $user = $request->user();
 
-        $items = DB::transaction(function () use ($datos, $nuevo, $user) {
+        $unidades = []; // id => unidades que salen con este cambio (para el aviso)
+        $items = DB::transaction(function () use ($datos, $nuevo, $user, &$unidades) {
             $items = InventarioItem::whereIn('id', $datos['ids'])->lockForUpdate()->get();
             if ($items->count() !== count(array_unique($datos['ids']))) {
                 throw ValidationException::withMessages(['ids' => 'Alguna línea ya no existe; recarga la tabla.']);
@@ -161,14 +164,17 @@ class InventarioController extends Controller
                         'ids' => "{$item->codigo}: no se puede pasar de «{$item->estado->etiqueta()}» a «{$nuevo->etiqueta()}». Recarga la tabla.",
                     ]);
                 }
+                $unidades[$item->id] = $item->faltan();
                 $item->update([
                     'estado' => $nuevo,
+                    // «Enviado» manda todo lo que faltaba, también el resto de un envío parcial.
+                    'enviada' => $nuevo === EstadoItem::Enviado ? $item->cantidad : $item->enviada,
                     'fecha_ingreso' => $nuevo === EstadoItem::NoDisponible ? $datos['fecha_ingreso'] : null,
                     'nota_proveedor' => $datos['nota'] ?? $item->nota_proveedor,
                     'atendido_por' => $user->id,
                     'atendido_en' => now(),
                 ]);
-                $item->registrar($user, $nuevo->value, null, $datos['nota'] ?? null);
+                $item->registrar($user, $nuevo->value, $nuevo === EstadoItem::Enviado ? $unidades[$item->id] : null, $datos['nota'] ?? null);
             }
 
             return $items;
@@ -176,7 +182,50 @@ class InventarioController extends Controller
 
         return response()->json([
             'actualizados' => $items->count(),
-            'whatsapp' => $avisos->inventarioActualizado($items, $nuevo, $user, $datos['nota'] ?? null),
+            'whatsapp' => $avisos->inventarioActualizado($items, $nuevo, $user, $datos['nota'] ?? null, $unidades),
+        ]);
+    }
+
+    /**
+     * El proveedor manda solo una parte (p. ej. 5 de 10). Lo que falta sigue en la lista
+     * como «no disponible» con la fecha aprox. en que ingresa, hasta que lo mande con «Enviado».
+     */
+    public function envioParcial(Request $request, InventarioItem $item, Avisos $avisos): JsonResponse
+    {
+        $faltan = $item->faltan();
+        $datos = $request->validate([
+            'cantidad' => ['required', 'integer', 'min:1', 'max:'.max(1, $faltan - 1)],
+            'fecha_ingreso' => ['required', 'date', 'after_or_equal:today'],
+            'nota' => ['nullable', 'string', 'max:500'],
+        ], [
+            'cantidad.max' => $faltan > 1 ? "Para mandar las {$faltan} use «Enviado»." : 'Para mandarlo use «Enviado».',
+            'fecha_ingreso.required' => 'Indica la fecha aproximada en que ingresa lo que falta.',
+            'fecha_ingreso.after_or_equal' => 'La fecha de ingreso no puede ser anterior a hoy.',
+        ]);
+        $user = $request->user();
+
+        DB::transaction(function () use (&$item, $datos, $user) {
+            $item = InventarioItem::whereKey($item->id)->lockForUpdate()->firstOrFail();
+            if (! in_array(EstadoItem::Enviado, $item->estado->siguientesProveedor(), true) || $datos['cantidad'] >= $item->faltan()) {
+                throw ValidationException::withMessages(['cantidad' => 'La línea cambió mientras tanto; recarga la tabla.']);
+            }
+            $enviada = $item->enviada + $datos['cantidad'];
+            $item->update([
+                'enviada' => $enviada,
+                'estado' => EstadoItem::NoDisponible,
+                'fecha_ingreso' => $datos['fecha_ingreso'],
+                'nota_proveedor' => $datos['nota'] ?? $item->nota_proveedor,
+                'atendido_por' => $user->id,
+                'atendido_en' => now(),
+            ]);
+            $item->registrar($user, 'envio_parcial', $datos['cantidad'],
+                "Van {$enviada} de {$item->cantidad}; faltan {$item->faltan()}, ingreso aprox. ".$item->fecha_ingreso->format('d/m/Y')
+                .(! empty($datos['nota']) ? ". {$datos['nota']}" : ''));
+        });
+
+        return response()->json([
+            'item' => $this->datos($item->fresh()->load(['creador', 'lote', 'historial.user', 'atendidoPor']), $request),
+            'whatsapp' => $avisos->inventarioParcial($item->fresh(), (int) $datos['cantidad'], $user, $datos['nota'] ?? null),
         ]);
     }
 
@@ -186,11 +235,11 @@ class InventarioController extends Controller
         $f = fn ($d) => $d ? FechaExcel::PHPToExcel($d) : null;
 
         return (new Excel)
-            ->hoja('Pedido de inventario', ['Código', 'Descripción', 'Cantidad', 'Agregado por', 'Fecha', 'Pedido al proveedor', 'Estado', 'Ingreso aprox.', 'Nota del proveedor'],
+            ->hoja('Pedido de inventario', ['Código', 'Descripción', 'Cantidad', 'Enviadas', 'Faltan', 'Agregado por', 'Fecha', 'Pedido al proveedor', 'Estado', 'Ingreso aprox.', 'Nota del proveedor'],
                 $items->map(fn (InventarioItem $i) => [
-                    $i->codigo, $i->descripcion, $i->cantidad, $i->creador->name, $f($i->created_at),
+                    $i->codigo, $i->descripcion, $i->cantidad, $i->enviada, $i->estado === EstadoItem::Descontinuado ? 0 : $i->faltan(), $i->creador->name, $f($i->created_at),
                     $i->lote ? "#{$i->lote->numero}" : '', $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
-                ]), [4 => Excel::FECHA_HORA, 7 => Excel::FECHA])
+                ]), [6 => Excel::FECHA_HORA, 9 => Excel::FECHA])
             ->descargar('inventario-'.now()->format('Y-m-d').'.xlsx');
     }
 
@@ -206,6 +255,7 @@ class InventarioController extends Controller
                 'inventario as pendientes' => fn ($q) => $q->whereIn('estado', InventarioItem::ACTIVOS),
             ])
             ->withSum(['inventario as unidades' => fn ($q) => $q->where('estado', '!=', 'anulado')], 'cantidad')
+            ->withSum('inventario as unidades_enviadas', 'enviada')
             ->orderByRaw("CASE WHEN estado = 'abierto' THEN 0 ELSE 1 END")
             ->orderByDesc('id')
             ->limit(100)
@@ -220,6 +270,7 @@ class InventarioController extends Controller
             'cerrado_por' => $l->cerradoPor?->name,
             'repuestos' => $l->repuestos,
             'unidades' => (int) $l->unidades,
+            'unidades_enviadas' => (int) $l->unidades_enviadas,
             'enviados' => $l->enviados,
             'pendientes' => $l->pendientes,
         ]));
@@ -281,6 +332,17 @@ class InventarioController extends Controller
         }
     }
 
+    /** Estados a los que el proveedor puede pasar la línea, más «envio_parcial» si quedan 2 o más. */
+    private function accionesProveedor(InventarioItem $i): array
+    {
+        $acciones = array_map(fn (EstadoItem $e) => $e->value, $i->estado->siguientesProveedor());
+        if (in_array('enviado', $acciones, true) && $i->faltan() > 1) {
+            $acciones[] = 'envio_parcial';
+        }
+
+        return $acciones;
+    }
+
     private function datos(InventarioItem $i, Request $request): array
     {
         $user = $request->user();
@@ -293,6 +355,8 @@ class InventarioController extends Controller
             'codigo' => $i->codigo,
             'descripcion' => $i->descripcion,
             'cantidad' => $i->cantidad,
+            'enviada' => $i->enviada,
+            'faltan' => $i->faltan(),
             'agregado_por' => $i->creador->name,
             'aportes' => $aportes,
             'fecha' => $i->created_at->toIso8601String(),
@@ -304,8 +368,7 @@ class InventarioController extends Controller
             'atendido_en' => $i->atendido_en?->toIso8601String(),
             'lote' => $i->lote ? ['id' => $i->lote->id, 'numero' => $i->lote->numero, 'abierto' => $i->lote->abierto()] : null,
             'editable' => $i->editable() && $user->can('inventario.gestionar'),
-            'acciones' => $user->can('inventario.atender')
-                ? array_map(fn (EstadoItem $e) => $e->value, $i->estado->siguientesProveedor()) : [],
+            'acciones' => $user->can('inventario.atender') ? $this->accionesProveedor($i) : [],
         ];
     }
 }

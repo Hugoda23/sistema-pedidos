@@ -77,6 +77,7 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
         Route::put('/{item}', [InventarioController::class, 'update'])->middleware('permission:inventario.gestionar');
         Route::delete('/{item}', [InventarioController::class, 'destroy'])->middleware('permission:inventario.gestionar');
         Route::post('/estado', [InventarioController::class, 'cambiarEstado'])->middleware('permission:inventario.atender');
+        Route::post('/{item}/envio-parcial', [InventarioController::class, 'envioParcial'])->middleware('permission:inventario.atender');
     });
 
     Route::middleware('permission:proveedor.ver')->prefix('proveedor')->group(function () {
