@@ -14,7 +14,8 @@ trap 'rm -f "$tmp"' EXIT
 docker exec pedidos_db pg_dump -U pedidos --clean --if-exists pedidos | gzip > "$tmp"
 gzip -t "$tmp"
 # Un volcado sano trae la tabla de usuarios; si no, mejor fallar que guardar basura.
-zcat "$tmp" | grep -q 'CREATE TABLE public.users' || { echo "respaldo incompleto: $tmp" >&2; exit 1; }
+# (grep sin -q: con -q cortaría a zcat y pipefail lo tomaría como error)
+zcat "$tmp" | grep 'CREATE TABLE public.users' > /dev/null || { echo "respaldo incompleto: $tmp" >&2; exit 1; }
 mv "$tmp" "$archivo"
 
 find "$DESTINO" -name 'pedidos_diario_*.sql.gz' -mtime +"$DIAS" -delete
