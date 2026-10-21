@@ -1,0 +1,95 @@
+# Producción (VPS de Taller-sis, dominio fadeaap.com).
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# No publica puertos: el nginx de Taller-sis (dueño de 80/443) reenvía fadeaap.com
+# a «pedidos-web» por la red de Taller-sis. Ver DESPLIEGUE.md.
+# Los mem_limit cuidan que este sistema nunca deje sin memoria a Taller-sis.
+
+x-php: &php
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+  restart: always
+  volumes:
+    - ./backend:/var/www/html
+  env_file: .env.production
+  depends_on:
+    db:
+      condition: service_healthy
+  networks: [pedidos]
+
+services:
+  app:
+    <<: *php
+    container_name: pedidos_app
+    mem_limit: 256m
+
+  queue:
+    <<: *php
+    container_name: pedidos_queue
+    command: php artisan queue:work --tries=3 --sleep=3 --max-time=3600
+    mem_limit: 192m
+
+  scheduler:
+    <<: *php
+    container_name: pedidos_scheduler
+    command: php artisan schedule:work
+    mem_limit: 160m
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile.prod
+    container_name: pedidos_nginx
+    restart: always
+    depends_on: [app]
+    mem_limit: 64m
+    networks:
+      pedidos:
+      proxy:
+        aliases: [pedidos-web]
+
+  db:
+    image: postgres:16-alpine
+    container_name: pedidos_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-pedidos}
+      POSTGRES_USER: ${DB_USERNAME:-pedidos}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatoria en produccion}
+    volumes:
+      - pedidos_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-pedidos} -d ${DB_DATABASE:-pedidos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+    networks: [pedidos]
+
+  # Cada sesión vinculada es un Chromium (~250-500 MB): con 4 GB en el VPS, pocas a la vez.
+  whatsapp:
+    build:
+      context: .
+      dockerfile: docker/whatsapp/Dockerfile
+    container_name: pedidos_whatsapp
+    restart: always
+    environment:
+      WHATSAPP_PORT: 3000
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:?WHATSAPP_TOKEN es obligatoria en produccion}
+      WHATSAPP_COUNTRY_CODE: ${WHATSAPP_COUNTRY_CODE:-502}
+    volumes:
+      - pedidos_whatsapp:/data
+    shm_size: 512m
+    mem_limit: ${WHATSAPP_MEM_LIMIT:-1200m}
+    networks: [pedidos]
+
+volumes:
+  pedidos_db:
+  pedidos_whatsapp:
+
+networks:
+  pedidos:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-taller-sis_default}
