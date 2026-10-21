@@ -43,6 +43,24 @@ dc restart queue scheduler
 
 ## Respaldo de la base
 
+Diario a las 03:00 de Guatemala (09:00 UTC, el VPS está en UTC) con `scripts/respaldo-diario.sh`:
+guarda `/root/backups/pedidos_diario_*.sql.gz` y conserva 14 días. Bitácora en `/var/log/respaldo-pedidos.log`.
+
+```bash
+# /etc/cron.d/respaldo-pedidos
+0 9 * * * root /root/sistema-pedidos/scripts/respaldo-diario.sh >> /var/log/respaldo-pedidos.log 2>&1
+```
+
+A mano (p. ej. antes de desplegar):
+
 ```bash
 docker exec pedidos_db pg_dump -U pedidos pedidos | gzip > /root/backups/pedidos_$(date +%Y%m%d_%H%M%S).sql.gz
+```
+
+Restaurar (detiene la app para que nadie escriba mientras tanto):
+
+```bash
+dc stop app queue scheduler
+zcat /root/backups/pedidos_diario_AAAAMMDD_HHMMSS.sql.gz | docker exec -i pedidos_db psql -U pedidos -d pedidos -q
+dc start app queue scheduler
 ```
