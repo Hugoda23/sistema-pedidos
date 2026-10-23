@@ -97,7 +97,7 @@ export default function NuevoPedido() {
               <div className="flex items-center justify-between gap-2 sm:col-span-2">
                 <span className="text-sm text-slate-600">{moneda((Number(l.cantidad) || 0) * (Number(l.precio) || 0))}</span>
                 {lineas.length > 1 && (
-                  <button className="rounded p-1 text-red-500 hover:bg-red-50 hover:text-red-700" title="Quitar línea" aria-label="Quitar línea" onClick={() => setLineas(lineas.filter((_, j) => j !== i))}><TrashIcon className="h-5 w-5" /></button>
+                  <button className="rounded p-1 text-red-500 hover:bg-red-50 hover:text-red-700" title="Quitar repuesto" aria-label="Quitar repuesto" onClick={() => setLineas(lineas.filter((_, j) => j !== i))}><TrashIcon className="h-5 w-5" /></button>
                 )}
               </div>
             </div>

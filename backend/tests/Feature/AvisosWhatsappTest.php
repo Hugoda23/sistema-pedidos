@@ -120,7 +120,7 @@ class AvisosWhatsappTest extends TestCase
         PedidoItem::whereKey($this->ids()[0])->update(['estado' => 'no_disponible', 'fecha_ingreso' => today()]);
         PedidoItem::whereKey($this->ids()[1])->update(['estado' => 'no_disponible', 'fecha_ingreso' => today()->addDay()]);
 
-        $this->artisan('avisos:ingresos')->expectsOutput('Líneas avisadas: 1')->assertSuccessful();
+        $this->artisan('avisos:ingresos')->expectsOutput('Repuestos avisados: 1')->assertSuccessful();
 
         $m = MensajeWhatsapp::sole();
         $this->assertSame($this->vendedor->id, $m->remitente_id);
@@ -129,16 +129,16 @@ class AvisosWhatsappTest extends TestCase
         $this->assertSame('/proveedor?estado=revisar', $this->proveedor->notifications()->sole()->data['url']);
         $this->assertSame(1, $this->vendedor->notifications()->count());
 
-        $this->artisan('avisos:ingresos')->expectsOutput('Líneas avisadas: 0');
+        $this->artisan('avisos:ingresos')->expectsOutput('Repuestos avisados: 0');
 
         $this->travel(1)->days();
-        $this->artisan('avisos:ingresos')->expectsOutput('Líneas avisadas: 1');
+        $this->artisan('avisos:ingresos')->expectsOutput('Repuestos avisados: 1');
 
         $this->travel(3)->days();
         $this->actingAs($this->proveedor)->postJson('/api/proveedor/items/estado', [
             'ids' => [$this->ids()[0]], 'estado' => 'no_disponible', 'fecha_ingreso' => today()->toDateString(),
         ])->assertOk();
-        $this->artisan('avisos:ingresos')->expectsOutput('Líneas avisadas: 1');
+        $this->artisan('avisos:ingresos')->expectsOutput('Repuestos avisados: 1');
     }
 
     public function test_preguntar_al_proveedor_desde_el_pedido(): void

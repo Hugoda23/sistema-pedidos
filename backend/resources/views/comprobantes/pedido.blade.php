@@ -106,7 +106,7 @@
         </tbody>
     </table>
     @if ($pedido->items->contains(fn ($i) => ! $i->estado->cuentaEnTotal()))
-        <div class="gris" style="margin-top:4px; font-size:9px;">Las líneas anuladas o descontinuadas no se cobran.</div>
+        <div class="gris" style="margin-top:4px; font-size:9px;">Los repuestos anulados o descontinuados no se cobran.</div>
     @endif
 
     <table class="totales">

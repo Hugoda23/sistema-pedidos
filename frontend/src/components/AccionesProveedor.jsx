@@ -24,7 +24,7 @@ export function ResultadoWhatsapp({ r, onCerrar }) {
   )
 }
 
-const AVISO_DESCONTINUADO = 'La línea quedará como descontinuada, ya no se le cobrará al cliente y se le avisará al vendedor.'
+const AVISO_DESCONTINUADO = 'El repuesto quedará como descontinuado, ya no se le cobrará al cliente y se le avisará al vendedor.'
 
 export function DialogoEstado({ dialogo, onCerrar, onEnviar, avisoDescontinuado = AVISO_DESCONTINUADO }) {
   const [fechaIngreso, setFechaIngreso] = useState(dialogo.fila?.fecha_ingreso ?? '')
@@ -40,7 +40,7 @@ export function DialogoEstado({ dialogo, onCerrar, onEnviar, avisoDescontinuado 
     if (err) { setErrores(primerError(err.errors)); setMsg(err.message) }
   }
 
-  const titulo = dialogo.fila ? `${dialogo.fila.codigo} · ${dialogo.fila.descripcion}` : `${cuantos} línea(s)`
+  const titulo = dialogo.fila ? `${dialogo.fila.codigo} · ${dialogo.fila.descripcion}` : `${cuantos} repuesto(s)`
 
   return (
     <Modal abierto titulo={noDisp ? 'No disponible' : 'Repuesto descontinuado'} onCerrar={onCerrar}>

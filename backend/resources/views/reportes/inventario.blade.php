@@ -33,6 +33,7 @@
     .der { text-align: right; white-space: nowrap; }
     .cod { font-family: "DejaVu Sans Mono", monospace; font-size: 9px; }
     .quitado td { color: #94a3b8; }
+    .tras { color: #b45309; font-size: 9px; }
     .pie { margin-top: 22px; text-align: center; color: #64748b; font-size: 9px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
 </style>
 </head>
@@ -83,7 +84,7 @@
             @endphp
             <tr class="{{ $i->estado === EstadoItem::Anulado ? 'quitado' : '' }}">
                 <td class="cod">{{ $i->codigo }}</td>
-                <td>{{ $i->descripcion }}</td>
+                <td>{{ $i->descripcion }}@if ($i->tras_cierre)<br><span class="tras">Agregado después del cierre</span>@endif</td>
                 <td class="der">{{ $i->cantidad }}</td>
                 <td class="der">{{ $i->enviada }}</td>
                 <td>{{ $aportes }}</td>

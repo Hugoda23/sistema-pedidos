@@ -61,10 +61,10 @@ class ProveedorController extends Controller
             ->hoja('Repuestos solicitados', ['Código', 'Descripción', 'Cantidad', 'Vendedor', 'Pedido', 'Pedido al proveedor', 'Solicitado', 'Estado', 'Ingreso aprox.', 'Nota'],
                 $items->map(fn (PedidoItem $i) => [
                     $i->codigo, $i->descripcion, $i->cantidad, $i->pedido->vendedor->name, $i->pedido->numero,
-                    $i->lote ? "#{$i->lote->numero}" : '', FechaExcel::PHPToExcel($i->created_at), $i->estado->etiqueta(),
+                    $i->lote ? "#{$i->lote->numero}".($i->tras_cierre ? ' (agregado después del cierre)' : '') : '', FechaExcel::PHPToExcel($i->created_at), $i->estado->etiqueta(),
                     $i->fecha_ingreso ? FechaExcel::PHPToExcel($i->fecha_ingreso) : null, $i->nota_proveedor,
                 ]), [6 => Excel::FECHA_HORA, 8 => Excel::FECHA])
-            ->hoja('Sumado por código', ['Código', 'Descripción', 'Unidades', 'Líneas'],
+            ->hoja('Sumado por código', ['Código', 'Descripción', 'Unidades', 'Solicitudes'],
                 $consolidado->map(fn ($f) => [$f->codigo, $f->descripcion, (int) $f->cantidad, (int) $f->lineas]))
             ->descargar('repuestos-'.now()->format('Y-m-d').'.xlsx');
     }
@@ -180,7 +180,7 @@ class ProveedorController extends Controller
         $items = DB::transaction(function () use ($datos, $nuevo, $request) {
             $items = PedidoItem::whereIn('id', $datos['ids'])->lockForUpdate()->get();
             if ($items->count() !== count(array_unique($datos['ids']))) {
-                throw ValidationException::withMessages(['ids' => 'Alguna línea ya no existe; recarga la tabla.']);
+                throw ValidationException::withMessages(['ids' => 'Algún repuesto ya no existe; recarga la tabla.']);
             }
 
             foreach ($items as $item) {
@@ -246,6 +246,7 @@ class ProveedorController extends Controller
             'nota_proveedor' => $i->nota_proveedor,
             'lote_id' => $i->lote_id,
             'lote_numero' => $i->lote?->numero,
+            'tras_cierre' => $i->tras_cierre,
             'acciones' => array_map(fn (EstadoItem $e) => $e->value, $i->estado->siguientesProveedor()),
         ];
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\EstadoItem;
 use App\Http\Controllers\Controller;
+use App\Models\Lote;
 use App\Models\Pago;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
@@ -58,13 +59,13 @@ class PedidoController extends Controller
         $f = fn ($d) => $d ? FechaExcel::PHPToExcel($d) : null;
 
         return (new Excel)
-            ->hoja('Pedidos', ['Número', 'Fecha', 'Cliente', 'Teléfono', 'Vendedor', 'Líneas', 'Total', 'Pagado', 'Saldo', 'Estado', 'Notas'],
+            ->hoja('Pedidos', ['Número', 'Fecha', 'Cliente', 'Teléfono', 'Vendedor', 'Repuestos', 'Total', 'Pagado', 'Saldo', 'Estado', 'Notas'],
                 $pedidos->map(fn (Pedido $p) => [
                     $p->numero, $f($p->created_at), $p->cliente->nombre, $p->cliente->telefono, $p->vendedor->name,
                     $p->items->count(), (float) $p->total, (float) $p->pagado, (float) $p->saldo(),
                     Pedido::ESTADOS[$p->estado] ?? $p->estado, $p->notas,
                 ]), [1 => Excel::FECHA, 6 => Excel::QUETZALES, 7 => Excel::QUETZALES, 8 => Excel::QUETZALES])
-            ->hoja('Líneas', ['Pedido', 'Cliente', 'Código', 'Descripción', 'Cantidad', 'Precio', 'Subtotal', 'Estado', 'Ingreso aprox.', 'Nota del proveedor'],
+            ->hoja('Repuestos', ['Pedido', 'Cliente', 'Código', 'Descripción', 'Cantidad', 'Precio', 'Subtotal', 'Estado', 'Ingreso aprox.', 'Nota del proveedor'],
                 $pedidos->flatMap(fn (Pedido $p) => $p->items->map(fn (PedidoItem $i) => [
                     $p->numero, $p->cliente->nombre, $i->codigo, $i->descripcion, $i->cantidad, (float) $i->precio,
                     $i->cantidad * (float) $i->precio, $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
@@ -132,21 +133,48 @@ class PedidoController extends Controller
     public function update(Request $request, Pedido $pedido): JsonResponse
     {
         $this->autorizar($request, $pedido, editar: true);
-        $pedido->update($request->validate(['notas' => ['nullable', 'string', 'max:2000']]));
+        $datos = $request->validate([
+            'notas' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'cliente_id' => ['sometimes', 'required', 'exists:clientes,id'],
+        ]);
+        if (isset($datos['cliente_id']) && $pedido->anulado()) {
+            throw ValidationException::withMessages(['cliente_id' => 'El pedido está anulado.']);
+        }
+        $pedido->update($datos);
 
         return response()->json($this->detalle($pedido));
     }
 
-    public function agregarItem(Request $request, Pedido $pedido): JsonResponse
+    /**
+     * Agrega un repuesto al pedido. Con `al_cerrado` va al último pedido al proveedor ya cerrado:
+     * es lo que el vendedor le pidió por teléfono después del cierre.
+     */
+    public function agregarItem(Request $request, Pedido $pedido, Avisos $avisos): JsonResponse
     {
         $this->autorizar($request, $pedido, editar: true);
         $this->abiertoParaCambios($pedido);
-        $datos = $request->validate($this->reglasItem());
+        $datos = $request->validate($this->reglasItem() + [
+            'al_cerrado' => ['boolean'],
+            'nota_cierre' => ['nullable', 'string', 'max:300'],
+        ]);
 
-        DB::transaction(function () use ($pedido, $datos, $request) {
-            $this->servicio->agregarItem($pedido, $datos, $request->user());
+        $cerrado = null;
+        if (! empty($datos['al_cerrado'])) {
+            $cerrado = Lote::ultimoCerrado(Lote::CLIENTES)
+                ?? throw ValidationException::withMessages(['al_cerrado' => 'Todavía no hay ningún pedido cerrado.']);
+        }
+
+        $item = DB::transaction(function () use ($pedido, $datos, $request, $cerrado) {
+            $item = $this->servicio->agregarItem($pedido, $datos, $request->user(), cerrado: $cerrado, nota: $datos['nota_cierre'] ?? null);
             $pedido->recalcular();
+
+            return $item;
         });
+
+        if ($cerrado) {
+            $avisos->trasCierre($cerrado, "{$item->codigo} {$item->descripcion} ({$item->cantidad} u.) · {$pedido->numero}",
+                $request->user(), '/proveedor');
+        }
 
         return response()->json($this->detalle($pedido->fresh()), 201);
     }
@@ -166,7 +194,7 @@ class PedidoController extends Controller
         // El precio es solo nuestro; la cantidad y la descripción ya no, si el proveedor tomó la línea.
         if ((isset($datos['cantidad']) && $datos['cantidad'] != $item->cantidad || isset($datos['descripcion']) && $datos['descripcion'] !== $item->descripcion)
             && ! $item->editable()) {
-            throw ValidationException::withMessages(['cantidad' => 'El proveedor ya tomó esta línea; solo se puede cambiar el precio.']);
+            throw ValidationException::withMessages(['cantidad' => 'El proveedor ya tomó este repuesto; solo se puede cambiar el precio.']);
         }
 
         $item->update($datos);
@@ -181,10 +209,10 @@ class PedidoController extends Controller
         $this->autorizar($request, $pedido, editar: true);
 
         if (! $item->editable()) {
-            throw ValidationException::withMessages(['item' => 'El proveedor ya tomó esta línea; anúlala en lugar de quitarla.']);
+            throw ValidationException::withMessages(['item' => 'El proveedor ya tomó este repuesto; anúlalo en lugar de quitarlo.']);
         }
         if ($pedido->items()->count() === 1) {
-            throw ValidationException::withMessages(['item' => 'Es la única línea del pedido; anula el pedido completo.']);
+            throw ValidationException::withMessages(['item' => 'Es el único repuesto del pedido; anula el pedido completo.']);
         }
 
         $item->delete();
@@ -257,6 +285,28 @@ class PedidoController extends Controller
         return response()->json($this->detalle($pedido->fresh()), 201);
     }
 
+    /** Corrige el monto o la nota de un anticipo o abono ya registrado. */
+    public function actualizarPago(Request $request, Pago $pago): JsonResponse
+    {
+        $pedido = Pedido::findOrFail($pago->pedido_id);
+        $this->autorizar($request, $pedido, editar: true);
+        if ($pedido->anulado()) {
+            throw ValidationException::withMessages(['monto' => 'El pedido está anulado.']);
+        }
+
+        // Lo que queda por cobrar sin contar este pago.
+        $tope = max(0.01, (float) $pedido->total - (float) $pedido->pagado + (float) $pago->monto);
+        $datos = $request->validate([
+            'monto' => ['required', 'numeric', 'min:0.01', 'max:'.round($tope, 2)],
+            'nota' => ['nullable', 'string', 'max:300'],
+        ], ['monto.max' => 'El monto no puede ser mayor a lo que falta por pagar (Q :max).']);
+
+        $pago->update($datos);
+        $pedido->recalcular();
+
+        return response()->json($this->detalle($pedido->fresh()));
+    }
+
     public function eliminarPago(Request $request, Pago $pago): JsonResponse
     {
         $pedido = Pedido::findOrFail($pago->pedido_id);
@@ -325,7 +375,7 @@ class PedidoController extends Controller
             'numero' => $pedido->numero,
             'fecha' => $pedido->created_at->toIso8601String(),
             'estado' => $pedido->estado,
-            'cliente' => $pedido->cliente->only(['id', 'nombre', 'telefono', 'moto']),
+            'cliente' => $pedido->cliente->only(['id', 'nombre', 'telefono', 'moto', 'notas']),
             'vendedor' => $pedido->vendedor->only(['id', 'name']),
             'notas' => $pedido->notas,
             'total' => $pedido->total,
@@ -336,8 +386,10 @@ class PedidoController extends Controller
                 'por' => $pedido->anuladoPor?->name,
                 'motivo' => $pedido->motivo_anulacion,
             ] : null,
+            'ultimo_cerrado' => Lote::ultimoCerrado(Lote::CLIENTES)?->numero,
             'items' => $pedido->items->map(fn (PedidoItem $i) => [
                 'id' => $i->id,
+                'tras_cierre' => $i->tras_cierre,
                 'codigo' => $i->codigo,
                 'descripcion' => $i->descripcion,
                 'cantidad' => $i->cantidad,

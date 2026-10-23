@@ -66,6 +66,28 @@ class InventarioTest extends TestCase
         $this->assertSame(1, InventarioItem::count());
     }
 
+    public function test_pedido_por_telefono_queda_en_el_inventario_ya_cerrado(): void
+    {
+        $nuevo = fn () => $this->actingAs($this->ana)->postJson('/api/inventario', [
+            'codigo' => 'buj', 'descripcion' => 'Bujía', 'cantidad' => 3, 'al_cerrado' => true, 'nota_cierre' => 'Habló con Don Pedro',
+        ]);
+        $nuevo()->assertStatus(422)->assertJsonValidationErrors('al_cerrado'); // todavía no hay ninguno cerrado
+
+        $this->agregar($this->ana, 'FIL-1', 2)->assertCreated();
+        $this->actingAs($this->proveedor)->postJson('/api/inventario/pedidos/cerrar')->assertOk();
+        $cerrado = Lote::sole();
+
+        $nuevo()->assertCreated()->assertJsonPath('tras_cierre', true)->assertJsonPath('lote.id', $cerrado->id)
+            ->assertJsonPath('editable', false);
+        $this->assertSame(1, Lote::count()); // no abrió el siguiente
+        $this->assertStringContainsString('Habló con Don Pedro', InventarioItem::where('codigo', 'BUJ')->sole()->historial()->sole()->nota);
+        $this->assertSame('Agregado a Inventario #1 (ya cerrado)', $this->proveedor->notifications()->latest()->first()->data['titulo']);
+
+        // Sale en el reporte de ese pedido, marcado.
+        $this->actingAs($this->proveedor)->get("/api/inventario/pedidos/{$cerrado->id}/reporte")
+            ->assertOk()->assertSee('BUJ')->assertSee('Agregado después del cierre');
+    }
+
     public function test_si_el_proveedor_ya_cerro_el_pedido_lo_adicional_va_en_otra_linea(): void
     {
         $this->agregar($this->ana, 'FIL-1', 2)->assertCreated();

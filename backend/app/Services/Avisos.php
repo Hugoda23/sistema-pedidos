@@ -142,7 +142,7 @@ class Avisos
             $texto = "*{$lote->nombre()} cerrado*\n\nIncluye sus repuestos:\n"
                 .$lineas->map(fn (PedidoItem $i) => '• '.$this->linea($i))->implode("\n");
 
-            $vendedor->notify(new Aviso("{$lote->nombre()} cerrado", $lineas->count().' de sus líneas van en este pedido.', '/pedidos'));
+            $vendedor->notify(new Aviso("{$lote->nombre()} cerrado", $lineas->count().' de sus repuestos van en este pedido.', '/pedidos'));
             $this->aUsuario($proveedor, $vendedor, $texto, 'lote_cerrado', null, $resumen);
         }
 
@@ -198,6 +198,19 @@ class Avisos
         }
 
         return $resumen['enviados'];
+    }
+
+    /**
+     * Se agregó algo a un pedido ya cerrado (el vendedor ya lo habló por teléfono con el proveedor):
+     * queda en la campanita del proveedor como constancia, sin WhatsApp.
+     */
+    public function trasCierre(Lote $lote, string $repuesto, User $quien, string $url): void
+    {
+        foreach (User::role('Proveedor')->where('activo', true)->get() as $proveedor) {
+            if ($proveedor->id !== $quien->id) {
+                $proveedor->notify(new Aviso("Agregado a {$lote->nombre()} (ya cerrado)", "{$quien->name}: {$repuesto}", $url));
+            }
+        }
     }
 
     /** Mensaje del vendedor a su cliente, desde su WhatsApp; opcionalmente con el comprobante en PDF. */

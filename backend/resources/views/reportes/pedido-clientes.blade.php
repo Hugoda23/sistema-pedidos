@@ -36,6 +36,7 @@
     .der { text-align: right; white-space: nowrap; }
     .cod { font-family: "DejaVu Sans Mono", monospace; font-size: 9px; }
     .anulada td { color: #94a3b8; }
+    .tras { color: #b45309; font-size: 9px; }
     .pie { margin-top: 22px; text-align: center; color: #64748b; font-size: 9px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
 </style>
 </head>
@@ -64,7 +65,7 @@
     <div class="caja">
         <table class="resumen">
             <tr>
-                <td><div class="n">{{ $activas->count() }}</div><div class="gris">líneas</div></td>
+                <td><div class="n">{{ $activas->count() }}</div><div class="gris">repuestos</div></td>
                 <td><div class="n">{{ $activas->sum('cantidad') }}</div><div class="gris">unidades</div></td>
                 <td><div class="n">{{ $sumado->count() }}</div><div class="gris">códigos</div></td>
                 <td><div class="n">{{ $porEstado(EstadoItem::Pendiente) }}</div><div class="gris">pendientes</div></td>
@@ -76,7 +77,7 @@
 
     <h3>Sumado por código</h3>
     <table class="tabla">
-        <thead><tr><th>Código</th><th>Descripción</th><th class="der">Unidades</th><th class="der">Líneas</th></tr></thead>
+        <thead><tr><th>Código</th><th>Descripción</th><th class="der">Unidades</th><th class="der">Solicitudes</th></tr></thead>
         <tbody>
         @forelse ($sumado as $f)
             <tr><td class="cod">{{ $f['codigo'] }}</td><td>{{ $f['descripcion'] }}</td><td class="der"><b>{{ $f['unidades'] }}</b></td><td class="der">{{ $f['lineas'] }}</td></tr>
@@ -86,14 +87,14 @@
         </tbody>
     </table>
 
-    <h3>Detalle de líneas</h3>
+    <h3>Detalle de repuestos</h3>
     <table class="tabla">
         <thead><tr><th>Código</th><th>Descripción</th><th class="der">Cant.</th><th>Vendedor</th><th>Pedido</th><th>Estado</th></tr></thead>
         <tbody>
         @foreach ($items as $i)
             <tr class="{{ $i->estado === EstadoItem::Anulado ? 'anulada' : '' }}">
                 <td class="cod">{{ $i->codigo }}</td>
-                <td>{{ $i->descripcion }}</td>
+                <td>{{ $i->descripcion }}@if ($i->tras_cierre)<br><span class="tras">Agregado después del cierre</span>@endif</td>
                 <td class="der">{{ $i->cantidad }}</td>
                 <td>{{ $i->pedido->vendedor->name }}</td>
                 <td>{{ $i->pedido->numero }}</td>

@@ -41,18 +41,23 @@ class PedidoService
         });
     }
 
-    /** Agrega una línea con el código y nombre que escribió el vendedor (no hay catálogo). */
-    public function agregarItem(Pedido $pedido, array $item, User $user, string $campo = 'codigo'): PedidoItem
+    /**
+     * Agrega una línea con el código y nombre que escribió el vendedor (no hay catálogo).
+     * Con `$cerrado` va a ese pedido ya cerrado (se le pidió al proveedor por teléfono).
+     */
+    public function agregarItem(Pedido $pedido, array $item, User $user, string $campo = 'codigo', ?Lote $cerrado = null, ?string $nota = null): PedidoItem
     {
         $linea = $pedido->items()->create([
-            'lote_id' => Lote::actual(Lote::CLIENTES)->id,
+            'lote_id' => $cerrado?->id ?? Lote::actual(Lote::CLIENTES)->id,
+            'tras_cierre' => (bool) $cerrado,
             'codigo' => PedidoItem::normalizarCodigo($item['codigo']),
             'descripcion' => trim($item['descripcion']),
             'cantidad' => $item['cantidad'],
             'precio' => $item['precio'],
             'estado' => EstadoItem::Pendiente,
         ]);
-        $linea->historial()->create(['user_id' => $user->id, 'estado_nuevo' => 'pendiente', 'nota' => 'Solicitado']);
+        $linea->historial()->create(['user_id' => $user->id, 'estado_nuevo' => 'pendiente',
+            'nota' => $cerrado ? Lote::notaTrasCierre($cerrado, $nota) : 'Solicitado']);
 
         return $linea;
     }
@@ -62,7 +67,7 @@ class PedidoService
         $avanzados = $pedido->items()->whereIn('estado', ['enviado', 'recibido', 'entregado'])->count();
         if ($avanzados) {
             throw ValidationException::withMessages([
-                'motivo' => 'El proveedor ya envió productos de este pedido; anula solo las líneas que falten.',
+                'motivo' => 'El proveedor ya envió productos de este pedido; anula solo los repuestos que falten.',
             ]);
         }
 

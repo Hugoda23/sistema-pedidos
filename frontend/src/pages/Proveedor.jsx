@@ -43,7 +43,7 @@ export default function Proveedor() {
     setAviso({ texto: '' })
     try {
       const r = await api('/proveedor/items/estado', { method: 'POST', body: { ids, estado, ...extra } })
-      setAviso({ tipo: 'ok', texto: `${r.actualizados} línea(s) actualizada(s).` })
+      setAviso({ tipo: 'ok', texto: `${r.actualizados} repuesto(s) actualizado(s).` })
       setWhatsapp(r.whatsapp)
       setDialogo(null)
       refrescar()
@@ -65,7 +65,15 @@ export default function Proveedor() {
       cell: ({ row }) => row.original.acciones.length > 0 && <input type="checkbox" aria-label="Marcar" checked={marcados.has(row.original.id)} onChange={() => alternar(row.original.id)} />,
     }] : []),
     { header: 'Código', accessorKey: 'codigo', cell: (c) => <span className="font-mono font-medium">{c.getValue()}</span> },
-    { header: 'Descripción', accessorKey: 'descripcion', cell: (c) => <div className="min-w-28 max-w-60 whitespace-normal">{c.getValue()}</div> },
+    {
+      header: 'Descripción', accessorKey: 'descripcion',
+      cell: ({ row: { original: f } }) => (
+        <div className="min-w-28 max-w-60 whitespace-normal">
+          {f.descripcion}
+          {f.tras_cierre && <div className="text-xs text-amber-700">Agregado al Pedido #{f.lote_numero} después del cierre</div>}
+        </div>
+      ),
+    },
     { header: 'Cant.', accessorKey: 'cantidad', cell: (c) => <span className="font-semibold">{c.getValue()}</span> },
     { header: 'Vendedor', accessorKey: 'vendedor', cell: (c) => <div className="min-w-20 whitespace-normal">{c.getValue()}</div> },
     { header: 'Pedido', accessorKey: 'pedido', cell: (c) => <span className="font-medium text-slate-800">{c.getValue()}</span> },

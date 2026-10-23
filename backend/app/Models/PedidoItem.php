@@ -9,12 +9,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PedidoItem extends Model
 {
-    protected $fillable = ['pedido_id', 'lote_id', 'codigo', 'descripcion', 'cantidad', 'precio',
+    protected $fillable = ['pedido_id', 'lote_id', 'tras_cierre', 'codigo', 'descripcion', 'cantidad', 'precio',
         'estado', 'fecha_ingreso', 'ingreso_notificado', 'nota_proveedor'];
 
     protected function casts(): array
     {
         return [
+            'tras_cierre' => 'boolean',
             'estado' => EstadoItem::class,
             'precio' => 'decimal:2',
             'cantidad' => 'integer',

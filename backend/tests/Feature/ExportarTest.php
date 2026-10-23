@@ -79,7 +79,7 @@ class ExportarTest extends TestCase
         $this->assertSame('Cliente Secreto', $pedidos[1][2]);
         $this->assertEquals(300, $pedidos[1][6]);
         $this->assertEquals(250, $pedidos[1][8]);
-        $this->assertCount(2, $this->tabla($libro, 'Líneas'));
+        $this->assertCount(2, $this->tabla($libro, 'Repuestos'));
 
         // Otro vendedor no exporta pedidos ajenos.
         $otro = User::factory()->create()->assignRole('Vendedor');

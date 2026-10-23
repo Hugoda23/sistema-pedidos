@@ -7,6 +7,10 @@ import { ACCION_ITEM } from '../lib/estados'
 import { fecha, fechaHora, moneda } from '../lib/formato'
 import { EstadoItem, EstadoPedido } from '../components/EstadoBadge'
 import WhatsappCliente from '../components/WhatsappCliente'
+import Autocompletar from '../components/Autocompletar'
+import FormModal from '../components/FormModal'
+import { buscarClientes } from '../lib/busquedas'
+import { CamposCliente } from './Clientes'
 import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
 import { Alerta, Boton, Campo, Input, Modal, Textarea } from '../components/ui'
 import { ArrowLeftIcon, ChatBubbleLeftRightIcon, NoSymbolIcon, PlusIcon, PrinterIcon } from '@heroicons/react/24/outline'
@@ -20,6 +24,8 @@ export default function PedidoDetalle() {
   const [anular, setAnular] = useState(false)
   const [wa, setWa] = useState(false)
   const [comprobante, setComprobante] = useState(false)
+  const [editarCliente, setEditarCliente] = useState(false)
+  const [cambiarCliente, setCambiarCliente] = useState(false)
   const gestiona = puede('pedidos.gestionar')
 
   const cargar = useCallback(() => api(`/pedidos/${id}`).then(setP).catch((e) => setError(e.status === 404 ? 'Pedido no encontrado.' : e.message)), [id])
@@ -86,7 +92,13 @@ export default function PedidoDetalle() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border bg-white p-4 text-sm">
-          <h2 className="mb-1 font-semibold text-slate-700">Cliente</h2>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <h2 className="font-semibold text-slate-700">Cliente</h2>
+            <div className="flex gap-3 text-xs">
+              {puede('clientes.gestionar') && <button className="text-blue-600 hover:underline" onClick={() => setEditarCliente(true)}>Editar</button>}
+              {gestiona && !p.anulado && <button className="text-blue-600 hover:underline" onClick={() => setCambiarCliente(true)}>Cambiar</button>}
+            </div>
+          </div>
           <div className="font-medium">{p.cliente.nombre}</div>
           <div className="text-slate-500">{p.cliente.telefono ?? 'Sin teléfono'}</div>
           <div className="text-slate-500">{p.cliente.moto}</div>
@@ -121,6 +133,7 @@ export default function PedidoDetalle() {
                   <td className="whitespace-nowrap px-4 py-2.5">{moneda(it.subtotal)}</td>
                   <td className="px-4 py-2.5">
                     <EstadoItem estado={it.estado} />
+                    {it.tras_cierre && it.lote && <div className="mt-0.5 text-xs text-amber-700">Agregado al Pedido #{it.lote.numero} después del cierre</div>}
                     {it.fecha_ingreso && <div className="mt-0.5 text-xs text-amber-700">Ingreso aprox. {fecha(it.fecha_ingreso)}</div>}
                     {it.nota_proveedor && <div className="mt-0.5 text-xs text-slate-500">Proveedor: {it.nota_proveedor}</div>}
                     {gestiona && it.estado === 'no_disponible' && (
@@ -141,7 +154,7 @@ export default function PedidoDetalle() {
             </tbody>
           </table>
         </div>
-        {gestiona && abierto && <AgregarLinea pedidoId={p.id} accion={accion} />}
+        {gestiona && abierto && <AgregarLinea pedidoId={p.id} ultimoCerrado={p.ultimo_cerrado} accion={accion} />}
       </div>
 
       {historial && (
@@ -164,6 +177,14 @@ export default function PedidoDetalle() {
           onCerrar={() => setComprobante(false)}
           onWhatsapp={gestiona && !p.anulado ? () => { setComprobante(false); setWa('detalle') } : null} />
       )}
+      {editarCliente && (
+        <FormModal titulo="Editar cliente" ruta="/clientes" inicial={{ ...p.cliente }} campos={CamposCliente}
+          onCerrar={() => setEditarCliente(false)} onGuardado={() => { setEditarCliente(false); cargar() }} />
+      )}
+      {cambiarCliente && (
+        <CambiarCliente p={p} onCerrar={() => setCambiarCliente(false)}
+          onElegir={async (c) => { if (await accion(`/pedidos/${p.id}`, { method: 'PUT', body: { cliente_id: c.id } })) setCambiarCliente(false) }} />
+      )}
       {anular && <AnularPedido p={p} onCerrar={() => setAnular(false)} onListo={(nuevo) => { setP(nuevo); setAnular(false) }} />}
     </div>
   )
@@ -172,6 +193,12 @@ export default function PedidoDetalle() {
 function Pagos({ p, gestiona, puedeBorrar, accion }) {
   const [monto, setMonto] = useState('')
   const [nota, setNota] = useState('')
+  const [editando, setEditando] = useState(null)
+
+  const guardarEdicion = async (e) => {
+    e.preventDefault()
+    if (await accion(`/pagos/${editando.id}`, { method: 'PUT', body: { monto: editando.monto, nota: editando.nota } })) setEditando(null)
+  }
 
   const abonar = async (e) => {
     e.preventDefault()
@@ -185,11 +212,21 @@ function Pagos({ p, gestiona, puedeBorrar, accion }) {
       <ul className="divide-y">
         {p.pagos.map((pg) => (
           <li key={pg.id} className="flex items-center justify-between py-1.5">
+            {editando?.id === pg.id ? (
+              <form onSubmit={guardarEdicion} className="grid w-full gap-2 sm:grid-cols-[9rem_1fr_auto_auto]">
+                <Input type="number" min="0.01" step="0.01" required autoFocus aria-label="Monto" value={editando.monto} onChange={(e) => setEditando({ ...editando, monto: e.target.value })} />
+                <Input placeholder="Nota (opcional)" value={editando.nota} onChange={(e) => setEditando({ ...editando, nota: e.target.value })} />
+                <Boton variante="secundario">Guardar</Boton>
+                <Boton type="button" variante="secundario" onClick={() => setEditando(null)}>Cancelar</Boton>
+              </form>
+            ) : (<>
             <span><span className="capitalize">{pg.tipo}</span> · {fechaHora(pg.fecha)} · {pg.registrado_por}{pg.nota && ` · ${pg.nota}`}</span>
             <span className="flex items-center gap-3">
               <span className="font-medium">{moneda(pg.monto)}</span>
+              {gestiona && <button className="text-xs text-blue-600 hover:underline" onClick={() => setEditando({ id: pg.id, monto: pg.monto, nota: pg.nota ?? '' })}>Editar</button>}
               {puedeBorrar && <button className="text-xs text-red-600 hover:underline" onClick={() => confirm('¿Eliminar este pago?') && accion(`/pagos/${pg.id}`, { method: 'DELETE' })}>Eliminar</button>}
             </span>
+            </>)}
           </li>
         ))}
       </ul>
@@ -204,12 +241,13 @@ function Pagos({ p, gestiona, puedeBorrar, accion }) {
   )
 }
 
-function AgregarLinea({ pedidoId, accion }) {
-  const vacia = { codigo: '', descripcion: '', cantidad: 1, precio: '' }
+function AgregarLinea({ pedidoId, ultimoCerrado, accion }) {
+  const vacia = { codigo: '', descripcion: '', cantidad: 1, precio: '', al_cerrado: false, nota_cierre: '' }
   const [l, setL] = useState(vacia)
 
   const agregar = async (e) => {
     e.preventDefault()
+    if (l.al_cerrado && !confirm(`¿Agregar ${l.codigo.toUpperCase()} al Pedido #${ultimoCerrado}, que ya está cerrado? Úselo solo si ya se lo pidió al proveedor por teléfono.`)) return
     if (await accion(`/pedidos/${pedidoId}/items`, { method: 'POST', body: l })) setL(vacia)
   }
 
@@ -222,7 +260,38 @@ function AgregarLinea({ pedidoId, accion }) {
       <Input className="sm:col-span-1" type="number" min="1" required value={l.cantidad} onChange={(e) => setL({ ...l, cantidad: e.target.value })} aria-label="Cantidad" />
       <Input className="sm:col-span-2" type="number" min="0" step="0.01" required placeholder="Precio" value={l.precio} onChange={(e) => setL({ ...l, precio: e.target.value })} />
       <Boton className="sm:col-span-2" variante="secundario" icono={PlusIcon}>Agregar</Boton>
+      {ultimoCerrado && <TrasCierre numero={`Pedido #${ultimoCerrado}`} d={l} setD={setL} className="sm:col-span-12" />}
     </form>
+  )
+}
+
+/** Casilla para mandar el repuesto al último pedido ya cerrado (se le pidió al proveedor por teléfono). */
+export function TrasCierre({ numero, d, setD, className = '' }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 text-sm ${className}`}>
+      <label className="inline-flex items-center gap-2 text-slate-600">
+        <input type="checkbox" checked={d.al_cerrado} onChange={(e) => setD({ ...d, al_cerrado: e.target.checked })} />
+        Ya se lo pedí por teléfono al proveedor: va en el {numero}, que ya está cerrado
+      </label>
+      {d.al_cerrado && (
+        <Input className="sm:max-w-xs" placeholder="¿Con quién habló? (opcional)" value={d.nota_cierre} onChange={(e) => setD({ ...d, nota_cierre: e.target.value })} />
+      )}
+    </div>
+  )
+}
+
+function CambiarCliente({ p, onCerrar, onElegir }) {
+  const [texto, setTexto] = useState('')
+  return (
+    <Modal abierto titulo={`Cambiar el cliente de ${p.numero}`} onCerrar={onCerrar}>
+      <p className="mb-3 text-sm text-slate-600">Ahora: <span className="font-medium">{p.cliente.nombre}</span>. Elija el cliente correcto; los repuestos y pagos se quedan en el pedido.</p>
+      <Campo label="Busca por nombre, teléfono o moto">
+        <Autocompletar value={texto} onChange={setTexto} buscar={buscarClientes} autoFocus placeholder="Escribe para buscar…"
+          onElegir={(c) => c.id !== p.cliente.id && onElegir(c)}
+          render={(c) => <><span className="font-medium">{c.nombre}</span> <span className="text-slate-500">{c.telefono} {c.moto && `· ${c.moto}`}</span></>} />
+      </Campo>
+      <div className="mt-4 flex justify-end"><Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton></div>
+    </Modal>
   )
 }
 
@@ -244,7 +313,7 @@ function AnularPedido({ p, onCerrar, onListo }) {
   return (
     <Modal abierto titulo={`Anular ${p.numero}`} onCerrar={onCerrar}>
       <form onSubmit={enviar} className="space-y-3">
-        <p className="text-sm text-slate-600">Las líneas pendientes se anulan y el proveedor deja de verlas. Los pagos quedan registrados.</p>
+        <p className="text-sm text-slate-600">Los repuestos pendientes se anulan y el proveedor deja de verlas. Los pagos quedan registrados.</p>
         {!errores.motivo && <Alerta>{msg}</Alerta>}
         <Campo label="Motivo" error={errores.motivo}><Textarea required value={motivo} onChange={(e) => setMotivo(e.target.value)} /></Campo>
         <div className="flex justify-end gap-2">

@@ -174,6 +174,65 @@ class PedidosTest extends TestCase
         $this->deleteJson("/api/pagos/{$this->item($p)->pedido->pagos()->first()->id}")->assertForbidden();
     }
 
+    public function test_editar_anticipo_hasta_lo_que_falta_por_pagar(): void
+    {
+        $p = $this->crearPedido();
+        $pago = $p['pagos'][0]['id'];
+
+        // Total 395.50: el anticipo puede subir hasta ahí, no más.
+        $this->putJson("/api/pagos/{$pago}", ['monto' => 400])->assertStatus(422)->assertJsonValidationErrors('monto');
+        $this->putJson("/api/pagos/{$pago}", ['monto' => 150, 'nota' => 'Era 150'])
+            ->assertOk()->assertJsonPath('pagado', '150.00')->assertJsonPath('saldo', '245.50')
+            ->assertJsonPath('pagos.0.nota', 'Era 150')->assertJsonPath('pagos.0.tipo', 'anticipo');
+
+        // Otro vendedor no ve el pedido.
+        $otro = User::factory()->create()->assignRole('Vendedor');
+        $this->actingAs($otro)->putJson("/api/pagos/{$pago}", ['monto' => 10])->assertNotFound();
+    }
+
+    public function test_cambiar_el_cliente_del_pedido(): void
+    {
+        $p = $this->crearPedido();
+        $otro = Cliente::factory()->create(['nombre' => 'Ana López']);
+
+        $this->putJson("/api/pedidos/{$p['id']}", ['cliente_id' => $otro->id])
+            ->assertOk()->assertJsonPath('cliente.nombre', 'Ana López')->assertJsonPath('total', '395.50');
+        $this->putJson("/api/pedidos/{$p['id']}", ['cliente_id' => 999999])->assertStatus(422);
+
+        // Las notas siguen igual si solo se cambia el cliente.
+        $this->putJson("/api/pedidos/{$p['id']}", ['notas' => 'Urgente'])->assertOk();
+        $this->putJson("/api/pedidos/{$p['id']}", ['cliente_id' => $this->cliente->id])->assertJsonPath('notas', 'Urgente');
+    }
+
+    public function test_repuesto_pedido_por_telefono_queda_en_el_pedido_ya_cerrado(): void
+    {
+        $p = $this->crearPedido();
+        $nuevo = ['codigo' => 'cad-1', 'descripcion' => 'Cadena', 'cantidad' => 1, 'precio' => 200, 'al_cerrado' => true];
+
+        $this->postJson("/api/pedidos/{$p['id']}/items", $nuevo)->assertStatus(422)->assertJsonValidationErrors('al_cerrado');
+
+        $proveedor = User::factory()->create()->assignRole('Proveedor');
+        $this->actingAs($proveedor)->postJson('/api/proveedor/lotes/cerrar')->assertOk();
+        $cerrado = Lote::sole();
+
+        $r = $this->actingAs($this->vendedor)->postJson("/api/pedidos/{$p['id']}/items", $nuevo + ['nota_cierre' => 'Con Juan'])
+            ->assertCreated()->assertJsonPath('total', '595.50')->assertJsonPath('ultimo_cerrado', 1)->json();
+        $item = collect($r['items'])->firstWhere('codigo', 'CAD-1');
+        $this->assertTrue($item['tras_cierre']);
+        $this->assertSame($cerrado->id, $item['lote']['id']);
+        $this->assertSame(1, Lote::count());
+        $this->assertStringContainsString('Con Juan', $item['historial'][0]['nota']);
+
+        // El proveedor lo ve como pendiente de ese pedido, marcado, y le queda el aviso.
+        $this->actingAs($proveedor)->getJson("/api/proveedor/items?lote_id={$cerrado->id}")
+            ->assertJsonFragment(['codigo' => 'CAD-1', 'tras_cierre' => true]);
+        $this->assertSame(1, $proveedor->notifications()->count());
+
+        // Sin la casilla, sigue yendo al pedido siguiente.
+        $this->actingAs($this->vendedor)->postJson("/api/pedidos/{$p['id']}/items", ['codigo' => 'X', 'descripcion' => 'x', 'cantidad' => 1, 'precio' => 1])->assertCreated();
+        $this->assertSame(2, Lote::count());
+    }
+
     public function test_anular_pedido_requiere_permiso_y_que_nada_se_haya_enviado(): void
     {
         $p = $this->crearPedido();

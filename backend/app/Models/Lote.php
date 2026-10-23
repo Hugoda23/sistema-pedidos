@@ -50,6 +50,18 @@ class Lote extends Model
         return self::where('tipo', $tipo)->where('estado', 'abierto')->first();
     }
 
+    /** El último pedido cerrado del tipo: ahí van los repuestos que se le piden al proveedor por teléfono. */
+    public static function ultimoCerrado(string $tipo): ?self
+    {
+        return self::where('tipo', $tipo)->where('estado', 'cerrado')->orderByDesc('numero')->first();
+    }
+
+    /** Nota del historial para lo agregado después del cierre. */
+    public static function notaTrasCierre(self $lote, ?string $nota): string
+    {
+        return "Agregado a {$lote->nombre()} ya cerrado, pedido por teléfono".($nota ? ": {$nota}" : '');
+    }
+
     public function abierto(): bool
     {
         return $this->estado === 'abierto';

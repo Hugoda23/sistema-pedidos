@@ -15,11 +15,12 @@ class InventarioItem extends Model
     public const ACTIVOS = ['pendiente', 'no_disponible'];
 
     protected $fillable = ['codigo', 'descripcion', 'cantidad', 'enviada', 'estado', 'fecha_ingreso', 'nota_proveedor',
-        'lote_id', 'creado_por', 'atendido_por', 'atendido_en'];
+        'lote_id', 'tras_cierre', 'creado_por', 'atendido_por', 'atendido_en'];
 
     protected function casts(): array
     {
         return [
+            'tras_cierre' => 'boolean',
             'estado' => EstadoItem::class,
             'cantidad' => 'integer',
             'enviada' => 'integer',

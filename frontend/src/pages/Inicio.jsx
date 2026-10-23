@@ -102,7 +102,7 @@ export default function Inicio() {
         <>
           {v && <h2 className="pt-2 text-lg font-semibold text-slate-700">Proveedor</h2>}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Tarjeta etiqueta="Por atender" valor={p.por_atender} contexto="líneas pendientes" a="/proveedor" />
+            <Tarjeta etiqueta="Por atender" valor={p.por_atender} contexto="repuestos pendientes" a="/proveedor" />
             <Tarjeta etiqueta="Revisar ingreso" valor={p.revisar} alerta={p.revisar ? '¿ya ingresaron?' : null} contexto={p.revisar ? null : 'ninguna fecha cumplida'} a="/proveedor?estado=revisar" />
             <Tarjeta etiqueta="Sin existencia" valor={p.sin_existencia} contexto="con fecha aproximada" a="/proveedor?estado=no_disponible" />
             <Tarjeta etiqueta="Enviados" valor={p.enviados_semana} contexto="en los últimos 7 días" />

@@ -9,6 +9,7 @@ import BotonExcel from '../components/BotonExcel'
 import { EstadoItem } from '../components/EstadoBadge'
 import { DialogoEstado, ResultadoWhatsapp } from '../components/AccionesProveedor'
 import VistaPreviaDocumento from '../components/VistaPreviaDocumento'
+import { TrasCierre } from './PedidoDetalle'
 import { Alerta, Boton, Campo, Encabezado, Input, Modal, Textarea } from '../components/ui'
 import { DocumentTextIcon, ExclamationTriangleIcon, LockClosedIcon, PlusIcon } from '@heroicons/react/24/outline'
 
@@ -19,7 +20,7 @@ const PESTANAS = [
   ['pedidos', 'Pedidos'],
 ]
 
-const VACIO = { codigo: '', descripcion: '', cantidad: 1 }
+const VACIO = { codigo: '', descripcion: '', cantidad: 1, al_cerrado: false, nota_cierre: '' }
 
 export default function Inventario() {
   const { puede } = useAuth()
@@ -43,11 +44,13 @@ export default function Inventario() {
   const cargarPedidos = useCallback(() => api('/inventario/pedidos').then(setPedidos).catch(() => {}), [])
   useEffect(() => { cargarPedidos() }, [cargarPedidos])
   const abierto = pedidos.find((p) => p.abierto)
+  const ultimoCerrado = pedidos.find((p) => !p.abierto) // vienen el abierto primero y luego del más nuevo al más viejo
   const verPedidos = filtros.estado === 'pedidos'
   // Al entrar a «Pedidos» se recargan los totales (pudieron cambiar por ediciones o envíos).
   useEffect(() => { if (verPedidos) cargarPedidos() }, [verPedidos, cargarPedidos])
 
   const agregar = async (datos) => {
+    if (datos.al_cerrado && !confirm(`¿Agregar ${datos.codigo.toUpperCase()} al Inventario #${ultimoCerrado.numero}, que ya está cerrado? Úselo solo si ya se lo pidió al proveedor por teléfono.`)) return
     setErrores({})
     setAviso({ texto: '' })
     try {
@@ -55,7 +58,7 @@ export default function Inventario() {
       setNuevo(VACIO)
       setDuplicado(null)
       cargarPedidos()
-      setAviso({ tipo: 'ok', texto: r.sumado ? `Se sumaron ${datos.cantidad} a ${r.codigo}: ahora son ${r.cantidad}.` : `${r.codigo} agregado.` })
+      setAviso({ tipo: 'ok', texto: r.sumado ? `Se sumaron ${datos.cantidad} a ${r.codigo}: ahora son ${r.cantidad}.` : r.tras_cierre ? `${r.codigo} agregado al Inventario #${r.lote.numero} (ya cerrado).` : `${r.codigo} agregado.` })
       recargar()
     } catch (e) {
       if (e.status === 409) { setDuplicado({ existente: e.data.existente, datos }); return }
@@ -152,6 +155,7 @@ export default function Inventario() {
         <div>
           <EstadoItem estado={f.estado} />
           {f.lote && <div className="text-xs text-slate-500">Inventario #{f.lote.numero}{f.lote.abierto ? ' (abierto)' : ''}</div>}
+          {f.tras_cierre && <div className="text-xs text-amber-700">Agregado después del cierre</div>}
           {f.fecha_ingreso && (
             <div className={`text-xs ${f.revisar_ingreso ? 'font-semibold text-red-600' : 'text-amber-700'}`}>
               {f.revisar_ingreso && <ExclamationTriangleIcon className="mr-0.5 inline h-3.5 w-3.5 align-[-2px]" />}
@@ -215,6 +219,8 @@ export default function Inventario() {
           <div className="flex items-end sm:col-span-2">
             <Boton icono={PlusIcon} className="w-full">Agregar</Boton>
           </div>
+          {ultimoCerrado && <TrasCierre numero={`Inventario #${ultimoCerrado.numero}`} d={nuevo} setD={setNuevo} className="sm:col-span-12" />}
+          {errores.al_cerrado && <p className="text-sm text-red-600 sm:col-span-12">{errores.al_cerrado}</p>}
         </form>
       )}
 
@@ -268,7 +274,7 @@ export default function Inventario() {
               ¿Desea agregar <b>{duplicado.datos.cantidad}</b> más?
               {duplicado.existente.en_pedido_abierto
                 ? ` Quedarían ${duplicado.existente.cantidad + Number(duplicado.datos.cantidad)} en total.`
-                : ' Como el proveedor ya tomó ese pedido, se agregará como una línea nueva en el siguiente.'}
+                : ' Como el proveedor ya tomó ese pedido, se agregará como un repuesto aparte en el siguiente.'}
             </p>
             <div className="flex justify-end gap-2">
               <Boton variante="secundario" onClick={() => setDuplicado(null)}>No</Boton>

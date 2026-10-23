@@ -33,7 +33,7 @@ export default function Pedidos() {
     { header: 'Fecha', accessorKey: 'fecha', cell: (c) => fecha(c.getValue()) },
     { header: 'Cliente', accessorKey: 'cliente' },
     ...(verTodos ? [{ header: 'Vendedor', accessorKey: 'vendedor' }] : []),
-    { header: 'Líneas', accessorKey: 'items' },
+    { header: 'Repuestos', accessorKey: 'items' },
     { header: 'Total', accessorKey: 'total', cell: (c) => moneda(c.getValue()) },
     { header: 'Saldo', accessorKey: 'saldo', cell: (c) => <span className={Number(c.getValue()) > 0 ? 'font-medium text-red-600' : 'text-slate-400'}>{moneda(c.getValue())}</span> },
     { header: 'Estado', accessorKey: 'estado', cell: (c) => <EstadoPedido estado={c.getValue()} /> },

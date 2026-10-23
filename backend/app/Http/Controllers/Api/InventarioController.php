@@ -39,16 +39,41 @@ class InventarioController extends Controller
      * Agrega un repuesto. Si el código ya está en la lista responde 409 con la línea
      * existente; con `sumar=true` el vendedor confirma que quiere agregar más.
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, Avisos $avisos): JsonResponse
     {
         $datos = $request->validate([
             'codigo' => ['required', 'string', 'max:60'],
             'descripcion' => ['required', 'string', 'max:200'],
             'cantidad' => ['required', 'integer', 'min:1', 'max:9999'],
             'sumar' => ['boolean'],
+            'al_cerrado' => ['boolean'],
+            'nota_cierre' => ['nullable', 'string', 'max:300'],
         ]);
         $codigo = PedidoItem::normalizarCodigo($datos['codigo']);
         $user = $request->user();
+
+        // Pedido por teléfono después del cierre: va aparte, en el último inventario cerrado.
+        if (! empty($datos['al_cerrado'])) {
+            $cerrado = Lote::ultimoCerrado(Lote::INVENTARIO)
+                ?? throw ValidationException::withMessages(['al_cerrado' => 'Todavía no hay ningún pedido de inventario cerrado.']);
+            $item = DB::transaction(function () use ($datos, $codigo, $user, $cerrado) {
+                $item = InventarioItem::create([
+                    'codigo' => $codigo,
+                    'descripcion' => trim($datos['descripcion']),
+                    'cantidad' => $datos['cantidad'],
+                    'estado' => EstadoItem::Pendiente,
+                    'lote_id' => $cerrado->id,
+                    'tras_cierre' => true,
+                    'creado_por' => $user->id,
+                ]);
+                $item->registrar($user, 'agregado', $datos['cantidad'], Lote::notaTrasCierre($cerrado, $datos['nota_cierre'] ?? null));
+
+                return $item;
+            });
+            $avisos->trasCierre($cerrado, "{$item->codigo} {$item->descripcion} ({$item->cantidad} u.)", $user, '/inventario');
+
+            return response()->json(['sumado' => false] + $this->datos($item->load(['creador', 'lote', 'historial.user']), $request), 201);
+        }
 
         $resultado = DB::transaction(function () use ($datos, $codigo, $user) {
             $existente = InventarioItem::activos()->where('codigo', $codigo)->with(['creador:id,name', 'lote'])->lockForUpdate()->latest('id')->first();
@@ -155,7 +180,7 @@ class InventarioController extends Controller
         $items = DB::transaction(function () use ($datos, $nuevo, $user, &$unidades) {
             $items = InventarioItem::whereIn('id', $datos['ids'])->lockForUpdate()->get();
             if ($items->count() !== count(array_unique($datos['ids']))) {
-                throw ValidationException::withMessages(['ids' => 'Alguna línea ya no existe; recarga la tabla.']);
+                throw ValidationException::withMessages(['ids' => 'Algún repuesto ya no existe; recarga la tabla.']);
             }
 
             foreach ($items as $item) {
@@ -207,7 +232,7 @@ class InventarioController extends Controller
         DB::transaction(function () use (&$item, $datos, $user) {
             $item = InventarioItem::whereKey($item->id)->lockForUpdate()->firstOrFail();
             if (! in_array(EstadoItem::Enviado, $item->estado->siguientesProveedor(), true) || $datos['cantidad'] >= $item->faltan()) {
-                throw ValidationException::withMessages(['cantidad' => 'La línea cambió mientras tanto; recarga la tabla.']);
+                throw ValidationException::withMessages(['cantidad' => 'El repuesto cambió mientras tanto; recarga la tabla.']);
             }
             $enviada = $item->enviada + $datos['cantidad'];
             $item->update([
@@ -238,7 +263,7 @@ class InventarioController extends Controller
             ->hoja('Pedido de inventario', ['Código', 'Descripción', 'Cantidad', 'Enviadas', 'Faltan', 'Agregado por', 'Fecha', 'Pedido al proveedor', 'Estado', 'Ingreso aprox.', 'Nota del proveedor'],
                 $items->map(fn (InventarioItem $i) => [
                     $i->codigo, $i->descripcion, $i->cantidad, $i->enviada, $i->estado === EstadoItem::Descontinuado ? 0 : $i->faltan(), $i->creador->name, $f($i->created_at),
-                    $i->lote ? "#{$i->lote->numero}" : '', $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
+                    $i->lote ? "#{$i->lote->numero}".($i->tras_cierre ? ' (agregado después del cierre)' : '') : '', $i->estado->etiqueta(), $f($i->fecha_ingreso), $i->nota_proveedor,
                 ]), [6 => Excel::FECHA_HORA, 9 => Excel::FECHA])
             ->descargar('inventario-'.now()->format('Y-m-d').'.xlsx');
     }
@@ -367,6 +392,7 @@ class InventarioController extends Controller
             'atendido_por' => $i->atendidoPor?->name,
             'atendido_en' => $i->atendido_en?->toIso8601String(),
             'lote' => $i->lote ? ['id' => $i->lote->id, 'numero' => $i->lote->numero, 'abierto' => $i->lote->abierto()] : null,
+            'tras_cierre' => $i->tras_cierre,
             'editable' => $i->editable() && $user->can('inventario.gestionar'),
             'acciones' => $user->can('inventario.atender') ? $this->accionesProveedor($i) : [],
         ];

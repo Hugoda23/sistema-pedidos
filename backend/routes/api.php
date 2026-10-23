@@ -61,6 +61,7 @@ Route::middleware(['auth:sanctum', 'activo'])->group(function () {
         Route::delete('/pedido-items/{item}', [PedidoController::class, 'eliminarItem']);
         Route::post('/pedido-items/{item}/estado', [PedidoController::class, 'estadoItem']);
         Route::post('/pedidos/{pedido}/pagos', [PedidoController::class, 'agregarPago']);
+        Route::put('/pagos/{pago}', [PedidoController::class, 'actualizarPago']);
         Route::delete('/pagos/{pago}', [PedidoController::class, 'eliminarPago']);
         Route::post('/pedidos/{pedido}/whatsapp', [WhatsAppController::class, 'alCliente'])->middleware('throttle:20,1');
         Route::post('/pedido-items/{item}/preguntar', [PedidoController::class, 'preguntarProveedor'])->middleware('throttle:20,1');
